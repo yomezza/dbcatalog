@@ -143,6 +143,45 @@ export function newPolicy(
     version: 0,
   };
 }
+export interface DeletionPreview {
+  kind: Kind | "all";
+  name: string;
+  servers: number;
+  instances: number;
+  databases: number;
+  policies: number;
+  fingerprint: string;
+}
+export interface AuditFilter {
+  query: string;
+  actorId: string;
+  action: string;
+  entity: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+}
+export interface AuditEvent {
+  id: string;
+  actorId: string;
+  actor: string;
+  action: string;
+  actionLabel: string;
+  entity: string;
+  objectId: string;
+  objectName: string;
+  createdAt: string;
+  details: Record<string, unknown>;
+}
+export interface AuditPage {
+  events: AuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  actors: { id: string; login: string }[];
+  actions: Record<string, string>;
+}
 interface Backend {
   ListPolicies(): Promise<Policy[]>;
   SavePolicy(p: Policy): Promise<Policy>;
@@ -175,7 +214,23 @@ interface Backend {
   Logout(): Promise<void>;
   GetCatalog(): Promise<Catalog>;
   SaveObject(o: CatalogObject): Promise<CatalogObject>;
-  DeleteObject(kind: Kind, id: string, version: number): Promise<void>;
+  DeleteObject(
+    kind: Kind,
+    id: string,
+    version: number,
+    fingerprint: string,
+  ): Promise<DeletionPreview>;
+  PreviewDeletion(
+    kind: Kind,
+    id: string,
+    version: number,
+  ): Promise<DeletionPreview>;
+  PreviewClearCatalog(): Promise<DeletionPreview>;
+  ClearCatalog(
+    fingerprint: string,
+    confirmation: string,
+  ): Promise<DeletionPreview>;
+  GetAudit(filter: AuditFilter): Promise<AuditPage>;
   ListUsers(): Promise<User[]>;
   UpdateUser(id: string, role: string, state: string): Promise<void>;
   GetHistory(kind: Kind, id: string): Promise<HistoryEntry[]>;
@@ -214,7 +269,7 @@ export function newObject(kind: Kind, parentId = ""): CatalogObject {
     status: "Эксплуатируется",
     attributes: emptyAttributes(),
     description: "",
-    dbms: "PostgreSQL",
+    dbms: kind === "instance" ? "PostgreSQL" : "",
     dbmsVersion: "",
     port: null,
     purpose: "",

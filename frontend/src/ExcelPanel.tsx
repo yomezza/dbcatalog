@@ -53,7 +53,7 @@ export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
       <div className="page-heading">
         <div>
           <div className="eyebrow">ОБМЕН ДАННЫМИ</div>
-          <h1>Импорт и экспорт Excel</h1>
+          <h1>Экспорт/Импорт</h1>
           <p className="muted">
             Утверждённый каталог на 21 или 28 колонок. Одна строка — одна база
             данных.

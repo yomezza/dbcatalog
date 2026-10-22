@@ -13,24 +13,23 @@ import {
   type CatalogObject,
   type HistoryEntry,
   type Lookups,
+  type DeletionPreview,
 } from "./api";
-import { visibleServers, pageOf } from "./catalog";
+import { filterCatalog, pageOf } from "./catalog";
 import "./style.css";
 import { Stat, UserRow } from "./components";
 import { ConnectionPanel } from "./ConnectionPanel";
 import { AuthPanel } from "./AuthPanel";
-import { BackupCard, PoliciesPanel, PolicyEditor } from "./PoliciesPanel";
+import { PoliciesPanel, PolicyEditor } from "./PoliciesPanel";
 import { ExcelPanel } from "./ExcelPanel";
 import { ObjectEditor } from "./ObjectEditor";
 import { ContextMenu } from "./ContextMenu";
 import { FavoritesPanel } from "./FavoritesPanel";
-import { fieldLabels, objectValue } from "./objectFields";
+import { ObjectCard } from "./ObjectCard";
+import { DeletionDialog } from "./DeletionDialog";
+import { SettingsPanel } from "./SettingsPanel";
+import { AuditPanel } from "./AuditPanel";
 
-const labels = {
-  server: "Сервер",
-  instance: "Экземпляр СУБД",
-  database: "База данных",
-};
 const roleLabels = {
   admin: "Администратор",
   editor: "Редактор",
@@ -54,6 +53,8 @@ function App() {
     | "favorites"
     | "excel"
     | "policies"
+    | "settings"
+    | "audit"
   >("connection");
   const [connection, setConnection] = useState<Connection>(initialConnection),
     [password, setPassword] = useState(""),
@@ -75,7 +76,12 @@ function App() {
   const [catalog, setCatalog] = useState<Catalog>(emptyCatalog),
     [selected, setSelected] = useState<CatalogObject | null>(null),
     [editor, setEditor] = useState<CatalogObject | null>(null),
-    [deleteTarget, setDeleteTarget] = useState<CatalogObject | null>(null);
+    [deletion, setDeletion] = useState<{
+      target: CatalogObject | null;
+      preview: DeletionPreview;
+    } | null>(null);
+  const [settingsConnection, setSettingsConnection] =
+    useState<Connection | null>(null);
   const [query, setQuery] = useState(""),
     [page, setPage] = useState(0),
     [users, setUsers] = useState<User[]>([]),
@@ -135,6 +141,38 @@ function App() {
     setError("");
     setEditor(o);
   }
+  function requestDelete(o: CatalogObject) {
+    void run(async () => {
+      const preview = await api().PreviewDeletion(o.kind, o.id, o.version);
+      setDeletion({ target: o, preview });
+    });
+  }
+  function requestClear() {
+    void run(async () =>
+      setDeletion({ target: null, preview: await api().PreviewClearCatalog() }),
+    );
+  }
+  async function performDeletion(confirmation: string) {
+    if (!deletion) return;
+    await run(async () => {
+      const p = deletion.preview;
+      if (deletion.target) {
+        const o = deletion.target;
+        await api().DeleteObject(o.kind, o.id, o.version, p.fingerprint);
+      } else {
+        await api().ClearCatalog(p.fingerprint, confirmation);
+      }
+      await loadCatalog();
+      setSelected(null);
+      setHistory(null);
+      setDeletion(null);
+      setMessage(
+        deletion.target
+          ? "Запись и дочерние объекты удалены"
+          : "Каталог очищен. Пользователи, настройки, история и аудит сохранены",
+      );
+    });
+  }
   async function run(work: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -183,7 +221,8 @@ function App() {
   }
   const canEdit =
     status.user?.role === "admin" || status.user?.role === "editor";
-  const matches = visibleServers(catalog, query);
+  const filtered = filterCatalog(catalog, query);
+  const matches = filtered.servers;
   const lastPage = Math.max(0, Math.ceil(matches.length / 10) - 1);
   const currentPage = Math.min(page, lastPage);
   function choose(o: CatalogObject) {
@@ -238,7 +277,7 @@ function App() {
       setSelected(null);
       setPolicyEditor(null);
       setPolicyDelete(null);
-      setDeleteTarget(null);
+      setDeletion(null);
       setContextMenu(null);
       setHistory(null);
       setFavorites([]);
@@ -323,7 +362,7 @@ function App() {
               className={view === "excel" ? "active" : ""}
               onClick={() => setView("excel")}
             >
-              ⇄ Excel
+              ⇄ Экспорт/Импорт
             </button>
             <button
               disabled={!status.user || busy}
@@ -351,15 +390,30 @@ function App() {
                 ♙ Пользователи
               </button>
             )}
+            {status.user?.role === "admin" && (
+              <button
+                disabled={busy}
+                className={view === "audit" ? "active" : ""}
+                onClick={() => setView("audit")}
+              >
+                ≡ Журнал аудита
+              </button>
+            )}
             <button
               disabled={busy}
-              className={view === "connection" ? "active" : ""}
-              onClick={() => {
-                setPassword("");
-                setView("connection");
-              }}
+              className={
+                view === "settings" || view === "connection" ? "active" : ""
+              }
+              onClick={() =>
+                void run(async () => {
+                  setSettingsConnection(
+                    (await api().GetConnection()).connection,
+                  );
+                  setView("settings");
+                })
+              }
             >
-              ⚙ Подключение
+              ⚙ Настройки
             </button>
           </nav>
           <div className="sidebar-bottom">
@@ -385,7 +439,7 @@ function App() {
                       setEditor(null);
                       setPolicyEditor(null);
                       setPolicyDelete(null);
-                      setDeleteTarget(null);
+                      setDeletion(null);
                       setContextMenu(null);
                       setHistory(null);
                       setView("auth");
@@ -413,6 +467,22 @@ function App() {
             <div className="loading" role="status">
               Выполняется операция…
             </div>
+          )}
+          {view === "settings" && (
+            <SettingsPanel
+              connection={settingsConnection}
+              status={status}
+              busy={busy}
+              onConnection={() => {
+                setPassword("");
+                if (settingsConnection) setConnection(settingsConnection);
+                setView("connection");
+              }}
+              onClear={requestClear}
+            />
+          )}
+          {view === "audit" && status.user?.role === "admin" && (
+            <AuditPanel busy={busy} run={run} />
           )}
           {view === "connection" && (
             <ConnectionPanel
@@ -493,7 +563,8 @@ function App() {
                   <div className="tree-tools">
                     <input
                       aria-label="Поиск в каталоге"
-                      placeholder="Поиск по имени, IP, назначению…"
+                      placeholder="Например: сервер | PostgreSQL | база"
+                      title="Разделяйте условия символом | — должны совпасть все условия одной цепочки"
                       value={query}
                       onChange={(e) => {
                         setQuery(e.target.value);
@@ -506,13 +577,13 @@ function App() {
                       <details open key={server.id}>
                         <summary>{node(server)}</summary>
                         <div className="branch">
-                          {catalog.instances
+                          {filtered.instances
                             .filter((i) => i.parentId === server.id)
                             .map((instance) => (
                               <details open key={instance.id}>
                                 <summary>{node(instance)}</summary>
                                 <div className="branch">
-                                  {catalog.databases
+                                  {filtered.databases
                                     .filter((d) => d.parentId === instance.id)
                                     .map((db) => (
                                       <div key={db.id}>{node(db)}</div>
@@ -549,148 +620,40 @@ function App() {
                     </button>
                   </div>
                 </section>
-                <section className="detail-panel">
-                  {selected ? (
-                    <>
-                      <div className="eyebrow">{labels[selected.kind]}</div>
-                      <h2>{selected.name}</h2>
-                      <span className="badge">{selected.status}</span>
-                      <dl>
-                        {Object.entries(fieldLabels)
-                          .filter(
-                            ([key]) => !["version", "parentId"].includes(key),
-                          )
-                          .map(([key, label]) => {
-                            const value = objectValue(selected, key);
-                            return value ? (
-                              <React.Fragment key={key}>
-                                <dt>{label}</dt>
-                                <dd>{String(value)}</dd>
-                              </React.Fragment>
-                            ) : null;
-                          })}
-                      </dl>
-                      {selected.kind !== "server" && (
-                        <BackupCard
-                          object={selected}
-                          policies={policies}
-                          canEdit={!!canEdit}
-                          onEdit={openPolicy}
-                        />
-                      )}
-                      <div className="detail-actions">
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            void run(() => toggleFavorite(selected))
-                          }
-                        >
-                          {isFavorite(selected)
-                            ? "★ В избранном"
-                            : "☆ В избранное"}
-                        </button>
-                        {canEdit && (
-                          <>
-                            <button
-                              disabled={busy}
-                              onClick={() => openEditor({ ...selected })}
-                            >
-                              Изменить
-                            </button>
-                            {selected.kind !== "database" && (
-                              <button
-                                disabled={busy}
-                                onClick={() =>
-                                  openEditor(
-                                    newObject(
-                                      selected.kind === "server"
-                                        ? "instance"
-                                        : "database",
-                                      selected.id,
-                                    ),
-                                  )
-                                }
-                              >
-                                +{" "}
-                                {selected.kind === "server"
-                                  ? "Экземпляр СУБД"
-                                  : "База данных"}
-                              </button>
-                            )}
-                          </>
-                        )}
-                        <button
-                          disabled={busy}
-                          onClick={() =>
-                            void run(async () =>
-                              setHistory(
-                                await api().GetHistory(
-                                  selected.kind,
-                                  selected.id,
-                                ),
-                              ),
-                            )
-                          }
-                        >
-                          История изменений
-                        </button>
-                        {status.user?.role === "admin" && (
-                          <button
-                            className="danger"
-                            disabled={busy}
-                            onClick={() => setDeleteTarget(selected)}
-                          >
-                            Удалить
-                          </button>
-                        )}
-                      </div>
-                      {history && (
-                        <div className="history">
-                          <h3>История изменений</h3>
-                          {history.length === 0 && <p>Нет записей.</p>}
-                          {history.map((h) => (
-                            <article key={h.id}>
-                              <strong>
-                                {(
-                                  {
-                                    create: "Создание",
-                                    update: "Изменение",
-                                    delete: "Удаление",
-                                  } as Record<string, string>
-                                )[h.action] ?? h.action}
-                              </strong>
-                              <small>
-                                {h.actor} ·{" "}
-                                {new Date(h.createdAt).toLocaleString("ru")}
-                              </small>
-                              {Object.entries(fieldLabels)
-                                .filter(
-                                  ([k]) =>
-                                    objectValue(h.before, k) !==
-                                    objectValue(h.after, k),
-                                )
-                                .map(([k, label]) => (
-                                  <p key={k}>
-                                    <b>{label}: </b>
-                                    {String(
-                                      objectValue(h.before, k) || "—",
-                                    )} →{" "}
-                                    {String(objectValue(h.after, k) || "—")}
-                                  </p>
-                                ))}
-                            </article>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="empty detail-empty">
-                      <span>◈</span>
-                      <h2>Выберите объект</h2>
-                      <p>Откройте сервер, экземпляр или базу в дереве слева.</p>
-                    </div>
-                  )}
-                </section>
+                <ObjectCard
+                  object={selected}
+                  catalog={catalog}
+                  policies={policies}
+                  history={history}
+                  busy={busy}
+                  canEdit={!!canEdit}
+                  canDelete={status.user?.role === "admin"}
+                  favorite={selected ? isFavorite(selected) : false}
+                  onEdit={() => selected && openEditor({ ...selected })}
+                  onAdd={() =>
+                    selected &&
+                    selected.kind !== "database" &&
+                    openEditor(
+                      newObject(
+                        selected.kind === "server" ? "instance" : "database",
+                        selected.id,
+                      ),
+                    )
+                  }
+                  onFavorite={() =>
+                    selected && void run(() => toggleFavorite(selected))
+                  }
+                  onHistory={() =>
+                    selected &&
+                    void run(async () =>
+                      setHistory(
+                        await api().GetHistory(selected.kind, selected.id),
+                      ),
+                    )
+                  }
+                  onDelete={() => selected && requestDelete(selected)}
+                  onPolicy={openPolicy}
+                />
               </div>
             </>
           )}
@@ -832,10 +795,7 @@ function App() {
             );
           }}
           onFavorite={() => void run(() => toggleFavorite(contextMenu.object))}
-          onDelete={() => {
-            setError("");
-            setDeleteTarget(contextMenu.object);
-          }}
+          onDelete={() => requestDelete(contextMenu.object)}
         />
       )}
       {policyEditor && (
@@ -896,46 +856,15 @@ function App() {
           </section>
         </div>
       )}
-      {deleteTarget && (
-        <div className="modal-backdrop">
-          <section
-            className="modal compact"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Подтверждение удаления"
-          >
-            <h2>Удалить «{deleteTarget.name}»?</h2>
-            <p>
-              Удаление необратимо. История сохранится. Если есть дочерние
-              объекты или политики, операция будет отклонена.
-            </p>
-            <div className="actions">
-              <button disabled={busy} onClick={() => setDeleteTarget(null)}>
-                Отмена
-              </button>
-              <button
-                disabled={busy}
-                className="danger"
-                onClick={() =>
-                  void run(async () => {
-                    await api().DeleteObject(
-                      deleteTarget.kind,
-                      deleteTarget.id,
-                      deleteTarget.version,
-                    );
-                    await loadCatalog();
-                    setSelected(null);
-                    setDeleteTarget(null);
-                    setMessage("Объект удалён");
-                  })
-                }
-              >
-                Удалить
-              </button>
-            </div>
-            {error && <p className="error notice">{error}</p>}
-          </section>
-        </div>
+      {deletion && (
+        <DeletionDialog
+          key={deletion.preview.fingerprint}
+          preview={deletion.preview}
+          busy={busy}
+          error={error}
+          onClose={() => setDeletion(null)}
+          onConfirm={(phrase) => void performDeletion(phrase)}
+        />
       )}
     </>
   );

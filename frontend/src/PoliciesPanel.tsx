@@ -1,3 +1,4 @@
+import { matchesSearch } from "./search";
 import { objectPath } from "./objectPath";
 import { useState } from "react";
 import {
@@ -128,14 +129,25 @@ export function PoliciesPanel({
 }) {
   const [history, setHistory] = useState<PolicyHistoryEntry[] | null>(null),
     [query, setQuery] = useState("");
-  const target = (p: Policy) =>
-    (p.kind === "instance" ? catalog.instances : catalog.databases).find(
-      (o) => o.id === p.objectId,
-    )?.name ?? "Объект удалён";
+  const target = (p: Policy) => {
+    const object = (
+      p.kind === "instance" ? catalog.instances : catalog.databases
+    ).find((o) => o.id === p.objectId);
+    return object ? objectPath(object, catalog) : "Объект не загружен";
+  };
   const filtered = policies.filter((p) =>
-    (p.name + " " + target(p))
-      .toLocaleLowerCase("ru")
-      .includes(query.toLocaleLowerCase("ru")),
+    matchesSearch(
+      [
+        p.name,
+        target(p),
+        p.backupType,
+        p.scheduler,
+        p.schedule,
+        p.storage,
+        p.enabled ? "Включен" : "Отключен",
+      ],
+      query,
+    ),
   );
   return (
     <>

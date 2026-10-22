@@ -6,6 +6,7 @@ async function login(page: Page, role = "admin") {
     ...newObject("server"),
     id: "s1",
     name: "host-a",
+    environment: "Промышленный",
     address: "10.0.0.1",
     version: 1,
   };
@@ -13,12 +14,20 @@ async function login(page: Page, role = "admin") {
     ...newObject("instance", "s1"),
     id: "i1",
     name: "pg-main",
+    environment: "Тестовый",
     version: 1,
   };
   const db = {
     ...newObject("database", "i1"),
     id: "d1",
     name: "payroll",
+    environment: "Промышленный",
+    attributes: {
+      ...newObject("database").attributes,
+      serviceOrganization: "Организация",
+      supervisor: "Руководитель",
+      responsible: "Ответственный",
+    },
     version: 1,
   };
   await page.addInitScript(
@@ -287,15 +296,15 @@ test("Excel requires explicit confirmation for catalog-only import and skipping 
       },
     });
   });
-  await page.getByRole("button", { name: "⇄ Excel", exact: true }).click();
   await page
-    .getByLabel("Файл каталога (до 20 МБ)")
-    .setInputFiles({
-      name: "catalog.xlsx",
-      mimeType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      buffer: Buffer.from("bridge-contract-fixture"),
-    });
+    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .click();
+  await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
+    name: "catalog.xlsx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from("bridge-contract-fixture"),
+  });
   const apply = page.getByRole("button", {
     name: "Подтвердить импорт 1 строк",
     exact: true,
@@ -316,5 +325,243 @@ test("Excel requires explicit confirmation for catalog-only import and skipping 
   await apply.click();
   await expect(
     page.getByText("Импорт завершён.", { exact: false }),
+  ).toBeVisible();
+});
+
+test("pipe AND search follows one branch and card flags have distinct colors", async ({
+  page,
+}) => {
+  await login(page);
+  const search = page.getByRole("textbox", { name: "Поиск в каталоге" });
+  await search.fill("host-a | payroll");
+  await expect(page.getByRole("button", { name: /payroll/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /pg-main/ })).toBeVisible();
+  await page.getByRole("button", { name: /payroll/ }).click();
+  await expect(page.locator(".object-card .value-badge.production")).toHaveText(
+    "Промышленный",
+  );
+  await expect(page.locator(".object-card .value-badge.success")).toHaveText(
+    "Эксплуатируется",
+  );
+  await page
+    .locator(".object-card")
+    .screenshot({ path: "/tmp/catalogdb-card-030.png" });
+  await search.fill("host-a | missing");
+  await expect(
+    page.getByText("Совпадений не найдено", { exact: true }),
+  ).toBeVisible();
+  await search.fill("host-a | pg-main | Тестовый");
+  await expect(page.getByRole("button", { name: /pg-main/ })).toBeVisible();
+});
+test("parent deletion displays server-calculated child counts and sends the preview fingerprint", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    Object.assign(window.go!.main.App, {
+      PreviewDeletion: async () => ({
+        kind: "server",
+        name: "host-a",
+        servers: 1,
+        instances: 1,
+        databases: 1,
+        policies: 0,
+        fingerprint: "branch-snapshot",
+      }),
+      DeleteObject: async (
+        kind: string,
+        id: string,
+        version: number,
+        fingerprint: string,
+      ) => {
+        (window as unknown as { __deletion: unknown }).__deletion = {
+          kind,
+          id,
+          version,
+          fingerprint,
+        };
+        const c = await window.go!.main.App.GetCatalog();
+        c.servers = [];
+        c.instances = [];
+        c.databases = [];
+        return {
+          kind: "server",
+          name: "host-a",
+          servers: 1,
+          instances: 1,
+          databases: 1,
+          policies: 0,
+          fingerprint,
+        };
+      },
+    });
+  });
+  await page.getByRole("button", { name: /host-a/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Удалить", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Подтверждение удаления",
+    exact: true,
+  });
+  await expect(
+    dialog.getByText("Экземпляры СУБД", { exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __deletion?: unknown }).__deletion,
+    ),
+  ).toBeUndefined();
+  await dialog
+    .getByRole("button", { name: "Удалить вместе с дочерними" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { __deletion: { fingerprint: string } })
+          .__deletion.fingerprint,
+    ),
+  ).toBe("branch-snapshot");
+  await expect(
+    page.getByText("Каталог пока пуст. Добавьте первый сервер."),
+  ).toBeVisible();
+});
+test("settings clearing requires two consecutive confirmations and is hidden from viewers", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    Object.assign(window.go!.main.App, {
+      PreviewClearCatalog: async () => ({
+        kind: "all",
+        name: "Весь каталог",
+        servers: 1,
+        instances: 1,
+        databases: 1,
+        policies: 0,
+        fingerprint: "all-snapshot",
+      }),
+      ClearCatalog: async (fingerprint: string, confirmation: string) => {
+        (window as unknown as { __clear: unknown }).__clear = {
+          fingerprint,
+          confirmation,
+        };
+        const c = await window.go!.main.App.GetCatalog();
+        c.servers = [];
+        c.instances = [];
+        c.databases = [];
+        return {
+          kind: "all",
+          name: "Весь каталог",
+          servers: 1,
+          instances: 1,
+          databases: 1,
+          policies: 0,
+          fingerprint,
+        };
+      },
+    });
+  });
+  await page.getByRole("button", { name: "⚙ Настройки", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Очистить все записи каталога" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Очистка каталога",
+    exact: true,
+  });
+  await expect(dialog.getByText("ПОДТВЕРЖДЕНИЕ 1 ИЗ 2")).toBeVisible();
+  await dialog.getByRole("button", { name: "Продолжить", exact: true }).click();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __clear?: unknown }).__clear,
+    ),
+  ).toBeUndefined();
+  const final = dialog.getByRole("button", {
+    name: "Очистить каталог",
+    exact: true,
+  });
+  await expect(final).toBeDisabled();
+  await dialog.getByRole("textbox").fill("УДАЛИТЬ КАТАЛОГ");
+  await final.click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { __clear: { confirmation: string } }).__clear
+          .confirmation,
+    ),
+  ).toBe("УДАЛИТЬ КАТАЛОГ");
+});
+test("viewer has no clearing or audit controls in settings", async ({
+  page,
+}) => {
+  await login(page, "viewer");
+  await expect(
+    page.getByRole("button", { name: "≡ Журнал аудита", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "⚙ Настройки", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Настройки", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Очистить все записи каталога" }),
+  ).toHaveCount(0);
+});
+test("audit filters send all terms and show details of a deleted object", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    Object.assign(window.go!.main.App, {
+      GetAudit: async (filter: unknown) => {
+        (window as unknown as { __auditFilter: unknown }).__auditFilter =
+          filter;
+        return {
+          events: [
+            {
+              id: "9",
+              actorId: "u1",
+              actor: "admin",
+              action: "cascade_delete",
+              actionLabel: "Удаление ветви каталога",
+              entity: "server",
+              objectId: "s1",
+              objectName: "deleted-host",
+              createdAt: "2026-10-22T08:00:00Z",
+              details: { servers: 1, instances: 2, databases: 3, policies: 1 },
+            },
+          ],
+          total: 1,
+          page: 0,
+          pageSize: 25,
+          actors: [{ id: "u1", login: "admin" }],
+          actions: { cascade_delete: "Удаление ветви каталога" },
+        };
+      },
+    });
+  });
+  await page
+    .getByRole("button", { name: "≡ Журнал аудита", exact: true })
+    .click();
+  await expect(
+    page.getByRole("cell", { name: "Удаление ветви каталога", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Поиск в аудите" })
+    .fill("admin | deleted-host");
+  await page.getByRole("button", { name: "Применить фильтры" }).click();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { __auditFilter: { query: string } })
+          .__auditFilter.query,
+    ),
+  ).toBe("admin | deleted-host");
+  await page.getByRole("button", { name: "Подробнее", exact: true }).click();
+  await expect(
+    page.locator(".audit-detail").getByText("deleted-host", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".audit-detail").getByText("Базы данных", { exact: true }),
   ).toBeVisible();
 });

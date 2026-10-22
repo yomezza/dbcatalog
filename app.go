@@ -32,8 +32,17 @@ func (a *App) GetCatalog() (application.Catalog, error) { return a.service.GetCa
 func (a *App) SaveObject(o application.Object) (application.Object, error) {
 	return a.service.SaveObject(o)
 }
-func (a *App) DeleteObject(kind, id string, version int64) error {
-	return a.service.DeleteObject(kind, id, version)
+func (a *App) DeleteObject(kind, id string, version int64, fingerprint string) (application.DeletionPreview, error) {
+	return a.service.DeleteObjectConfirmed(kind, id, version, fingerprint)
+}
+func (a *App) PreviewDeletion(kind, id string, version int64) (application.DeletionPreview, error) {
+	return a.service.PreviewDeletion(kind, id, version)
+}
+func (a *App) PreviewClearCatalog() (application.DeletionPreview, error) {
+	return a.service.PreviewClearCatalog()
+}
+func (a *App) ClearCatalog(fingerprint, confirmation string) (application.DeletionPreview, error) {
+	return a.service.ClearCatalog(fingerprint, confirmation)
 }
 func (a *App) ListUsers() ([]application.User, error)  { return a.service.ListUsers() }
 func (a *App) UpdateUser(id, role, state string) error { return a.service.UpdateUser(id, role, state) }
@@ -70,4 +79,8 @@ func (a *App) GetEffectivePolicy(id string) (application.EffectivePolicy, error)
 
 func (a *App) GetPolicyHistory(id string) ([]application.HistoryEntry, error) {
 	return a.service.GetHistory("policy", id)
+}
+
+func (a *App) GetAudit(filter application.AuditFilter) (application.AuditPage, error) {
+	return a.service.GetAudit(filter)
 }

@@ -88,8 +88,8 @@ func TestCatalogWorkflow(t *testing.T) {
 	if err != nil || len(hist) != 2 {
 		t.Fatal("history", hist, err)
 	}
-	if err = s.DeleteObject("server", server.ID, server.Version); err == nil {
-		t.Fatal("parent with children deleted")
+	if preview, err := s.PreviewDeletion("server", server.ID, server.Version); err != nil || preview.Instances != 1 || preview.Databases != 1 {
+		t.Fatal("cascade preview", preview, err)
 	}
 	if err = s.Register("newuser", "another-long-password", false); err != nil {
 		t.Fatal(err)
