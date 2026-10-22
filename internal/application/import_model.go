@@ -20,6 +20,7 @@ type ImportRowPreview struct {
 	Instance string   `json:"instance"`
 	Database string   `json:"database"`
 	Errors   []string `json:"errors"`
+	Values   []string `json:"values"`
 }
 type ImportPreview struct {
 	Token          string             `json:"token"`
@@ -48,7 +49,12 @@ type objectStamp struct {
 	ID      string
 	Version int64
 }
+type ImportRowEdit struct {
+	Row    int      `json:"row"`
+	Values []string `json:"values"`
+}
 type importPlan struct {
+	workbook spreadsheet.Workbook
 	preview  ImportPreview
 	items    []importItem
 	versions map[string]objectStamp

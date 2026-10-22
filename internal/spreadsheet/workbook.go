@@ -179,7 +179,8 @@ func Read(data []byte) (out Workbook, err error) {
 	}
 	return out, errors.New("Не найден лист с заголовками утверждённого шаблона (21 или 28 колонок)")
 }
-func Write(rows [][21]string) ([]byte, error) {
+func Write(rows [][21]string) ([]byte, error) { return WriteWithSummary(rows, nil) }
+func WriteWithSummary(rows [][21]string, summary [][2]string) ([]byte, error) {
 	wb := excelize.NewFile()
 	defer wb.Close()
 	sheet := "Каталог"
@@ -221,6 +222,28 @@ func Write(rows [][21]string) ([]byte, error) {
 	}
 	if len(rows) > 0 {
 		if err = wb.AutoFilter(sheet, fmt.Sprintf("A1:U%d", len(rows)+1), nil); err != nil {
+			return nil, err
+		}
+	}
+	if len(summary) > 0 {
+		if _, err = wb.NewSheet("Статистика"); err != nil {
+			return nil, err
+		}
+		for r, values := range summary {
+			for c, v := range values {
+				addr, _ := excelize.CoordinatesToCellName(c+1, r+1)
+				if err = wb.SetCellStr("Статистика", addr, v); err != nil {
+					return nil, err
+				}
+			}
+		}
+		if err = wb.SetColWidth("Статистика", "A", "A", 48); err != nil {
+			return nil, err
+		}
+		if err = wb.SetColWidth("Статистика", "B", "B", 32); err != nil {
+			return nil, err
+		}
+		if err = wb.SetCellStyle("Статистика", "A1", "B1", style); err != nil {
 			return nil, err
 		}
 	}

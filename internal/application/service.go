@@ -48,6 +48,7 @@ type Service struct {
 	mu            sync.Mutex
 	pool          *pgxpool.Pool
 	schema        string
+	connectionKey string
 	user          *User
 	path          string
 	store         CredentialStore
@@ -121,6 +122,7 @@ func (s *Service) Connect(c config.Connection, password string, useSaved, rememb
 	}
 	s.pool = pool
 	s.schema = c.Schema
+	s.connectionKey = c.CredentialKey()
 	s.user = nil
 	s.pendingImport = nil
 	return s.status(ctx)
@@ -255,7 +257,10 @@ func (s *Service) authorize(ctx context.Context, tx pgx.Tx, write, admin bool) e
 }
 func event(ctx context.Context, tx pgx.Tx, actor, action, entity, id string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO audit_events(actor_id,action,entity,object_id) VALUES($1,$2,$3,$4)`, actor, action, entity, id)
-	return err
+	if err != nil {
+		return err
+	}
+	return notificationEvent(ctx, tx, actor, action, entity, id)
 }
 func history(ctx context.Context, tx pgx.Tx, actor, action, entity, id string, before, after any) error {
 	var b, a []byte

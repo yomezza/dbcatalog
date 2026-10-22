@@ -28,13 +28,14 @@ import { FavoritesPanel } from "./FavoritesPanel";
 import { ObjectCard } from "./ObjectCard";
 import { DeletionDialog } from "./DeletionDialog";
 import { SettingsPanel } from "./SettingsPanel";
+import { DownloadsPanel } from "./DownloadsPanel";
+import { NotificationsPanel } from "./NotificationsPanel";
+import { StatisticsPanel } from "./StatisticsPanel";
+import { Sidebar, type View } from "./Sidebar";
+import { CatalogTree } from "./CatalogTree";
+import type { Notification } from "./api";
 import { AuditPanel } from "./AuditPanel";
 
-const roleLabels = {
-  admin: "Администратор",
-  editor: "Редактор",
-  viewer: "Наблюдатель",
-};
 const initialConnection: Connection = {
   host: "localhost",
   port: 5432,
@@ -45,17 +46,7 @@ const initialConnection: Connection = {
   sslRootCert: "",
 };
 function App() {
-  const [view, setView] = useState<
-    | "connection"
-    | "auth"
-    | "catalog"
-    | "users"
-    | "favorites"
-    | "excel"
-    | "policies"
-    | "settings"
-    | "audit"
-  >("connection");
+  const [view, setView] = useState<View>("connection");
   const [connection, setConnection] = useState<Connection>(initialConnection),
     [password, setPassword] = useState(""),
     [hasPassword, setHasPassword] = useState(false),
@@ -80,6 +71,16 @@ function App() {
       target: CatalogObject | null;
       preview: DeletionPreview;
     } | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set()),
+    [unread, setUnread] = useState(0);
+  function toggleBranch(id: string) {
+    setExpanded((old) => {
+      const next = new Set(old);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const [settingsConnection, setSettingsConnection] =
     useState<Connection | null>(null);
   const [query, setQuery] = useState(""),
@@ -126,12 +127,45 @@ function App() {
         : o.kind === "instance"
           ? o.parentId
           : instance?.parentId;
+    setExpanded(
+      (old) =>
+        new Set([
+          ...old,
+          ...(serverID ? [serverID] : []),
+          ...(instance ? [instance.id] : []),
+        ]),
+    );
     setPage(
       Math.max(
         0,
         Math.floor(catalog.servers.findIndex((s) => s.id === serverID) / 10),
       ),
     );
+  }
+  async function navigateNotification(n: Notification) {
+    if (n.entity === "user" && status.user?.role === "admin") {
+      setUsers(await api().ListUsers());
+      setView("users");
+      return;
+    }
+    if (n.entity === "catalog") {
+      await loadCatalog();
+      setView("catalog");
+      return;
+    }
+    if (n.entity === "account") {
+      setMessage(n.body);
+      return;
+    }
+    const c = await loadCatalog();
+    const o = [...c.servers, ...c.instances, ...c.databases].find(
+      (o) => o.kind === n.entity && o.id === n.objectId,
+    );
+    if (!o) {
+      setMessage("Связанный объект удалён или недоступен");
+      return;
+    }
+    goTo(o);
   }
   async function toggleFavorite(o: CatalogObject) {
     await api().SetFavorite(o.kind, o.id, !isFavorite(o));
@@ -198,6 +232,28 @@ function App() {
       }
     });
   }, []);
+  useEffect(() => {
+    if (!status.user) {
+      setUnread(0);
+      setExpanded(new Set());
+      return;
+    }
+    let live = true;
+    const refresh = async () => {
+      try {
+        const result = await api().GetNotifications(0, true);
+        if (live) setUnread(result.unread);
+      } catch {
+        /* Operation errors are reported when the inbox is opened. */
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30000);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
+  }, [status.user?.id, status.schema]);
   async function loadCatalog() {
     const [result, refs, favs, ps] = await Promise.all([
       api().GetCatalog(),
@@ -234,6 +290,9 @@ function App() {
       <button
         className={"tree-node " + (selected?.id === o.id ? "selected" : "")}
         onClick={() => choose(o)}
+        onDoubleClick={() => {
+          if (o.kind !== "database") toggleBranch(o.id);
+        }}
         onContextMenu={(e) => openContext(e, o)}
         onKeyDown={(e) => {
           if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
@@ -335,123 +394,51 @@ function App() {
         </div>
       </header>
       <div className="shell">
-        <aside>
-          <div className="workspace-label">РАБОЧАЯ ОБЛАСТЬ</div>
-          <nav>
-            <button
-              disabled={!status.user || busy}
-              className={view === "catalog" ? "active" : ""}
-              onClick={() => setView("catalog")}
-            >
-              ▦ Общий каталог
-            </button>
-            <button
-              disabled={!status.user || busy}
-              className={view === "policies" ? "active" : ""}
-              onClick={() =>
-                void run(async () => {
+        <Sidebar
+          view={view}
+          status={status}
+          busy={busy}
+          unread={unread}
+          onNavigate={(next) => {
+            if (
+              next === "policies" ||
+              next === "favorites" ||
+              next === "users" ||
+              next === "settings"
+            )
+              void run(async () => {
+                if (next === "policies")
                   setPolicies(await api().ListPolicies());
-                  setView("policies");
-                })
-              }
-            >
-              ◷ Политики РК
-            </button>
-            <button
-              disabled={!status.user || busy}
-              className={view === "excel" ? "active" : ""}
-              onClick={() => setView("excel")}
-            >
-              ⇄ Экспорт/Импорт
-            </button>
-            <button
-              disabled={!status.user || busy}
-              className={view === "favorites" ? "active" : ""}
-              onClick={() =>
-                void run(async () => {
+                if (next === "favorites")
                   setFavorites(await api().ListFavorites());
-                  setView("favorites");
-                })
-              }
-            >
-              ★ Избранное
-            </button>
-            {status.user?.role === "admin" && (
-              <button
-                disabled={busy}
-                className={view === "users" ? "active" : ""}
-                onClick={() =>
-                  void run(async () => {
-                    setUsers(await api().ListUsers());
-                    setView("users");
-                  })
-                }
-              >
-                ♙ Пользователи
-              </button>
-            )}
-            {status.user?.role === "admin" && (
-              <button
-                disabled={busy}
-                className={view === "audit" ? "active" : ""}
-                onClick={() => setView("audit")}
-              >
-                ≡ Журнал аудита
-              </button>
-            )}
-            <button
-              disabled={busy}
-              className={
-                view === "settings" || view === "connection" ? "active" : ""
-              }
-              onClick={() =>
-                void run(async () => {
+                if (next === "users") setUsers(await api().ListUsers());
+                if (next === "settings")
                   setSettingsConnection(
                     (await api().GetConnection()).connection,
                   );
-                  setView("settings");
-                })
-              }
-            >
-              ⚙ Настройки
-            </button>
-          </nav>
-          <div className="sidebar-bottom">
-            <span className={"dot " + (status.connected ? "online" : "")} />
-            {status.connected ? `Схема: ${status.schema}` : "Нет подключения"}
-            {status.user && (
-              <>
-                <p>
-                  {status.user.login}
-                  <small>{roleLabels[status.user.role]}</small>
-                </p>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      await api().Logout();
-                      setStatus((s) => ({ ...s, user: null }));
-                      setCatalog(emptyCatalog);
-                      setFavorites([]);
-                      setLookups({});
-                      setPolicies([]);
-                      setSelected(null);
-                      setEditor(null);
-                      setPolicyEditor(null);
-                      setPolicyDelete(null);
-                      setDeletion(null);
-                      setContextMenu(null);
-                      setHistory(null);
-                      setView("auth");
-                    })
-                  }
-                >
-                  Выйти
-                </button>
-              </>
-            )}
-          </div>
-        </aside>
+                setView(next);
+              });
+            else setView(next);
+          }}
+          onLogout={() =>
+            void run(async () => {
+              await api().Logout();
+              setStatus((s) => ({ ...s, user: null }));
+              setCatalog(emptyCatalog);
+              setFavorites([]);
+              setLookups({});
+              setPolicies([]);
+              setSelected(null);
+              setEditor(null);
+              setPolicyEditor(null);
+              setPolicyDelete(null);
+              setDeletion(null);
+              setContextMenu(null);
+              setHistory(null);
+              setView("auth");
+            })
+          }
+        />
         <main aria-busy={busy}>
           {error && (
             <div className="notice error" role="alert">
@@ -483,6 +470,30 @@ function App() {
           )}
           {view === "audit" && status.user?.role === "admin" && (
             <AuditPanel busy={busy} run={run} />
+          )}
+          {view === "downloads" && <DownloadsPanel busy={busy} run={run} />}
+          {view === "notifications" && (
+            <NotificationsPanel
+              busy={busy}
+              run={run}
+              onUnread={setUnread}
+              onNavigate={navigateNotification}
+            />
+          )}
+          {view === "statistics" && (
+            <StatisticsPanel
+              busy={busy}
+              run={run}
+              onSearch={(q) => {
+                setView("catalog");
+                setQuery(q);
+                setPage(0);
+                const f = filterCatalog(catalog, q);
+                setExpanded(
+                  new Set([...f.servers, ...f.instances].map((o) => o.id)),
+                );
+              }}
+            />
           )}
           {view === "connection" && (
             <ConnectionPanel
@@ -569,31 +580,47 @@ function App() {
                       onChange={(e) => {
                         setQuery(e.target.value);
                         setPage(0);
+                        const f = filterCatalog(catalog, e.target.value);
+                        setExpanded(
+                          e.target.value
+                            ? new Set(
+                                [...f.servers, ...f.instances].map((o) => o.id),
+                              )
+                            : new Set(),
+                        );
                       }}
                     />
                   </div>
+                  <div className="tree-controls">
+                    <button
+                      disabled={busy || !matches.length}
+                      onClick={() =>
+                        setExpanded(
+                          new Set(
+                            [...filtered.servers, ...filtered.instances].map(
+                              (o) => o.id,
+                            ),
+                          ),
+                        )
+                      }
+                    >
+                      Раскрыть все
+                    </button>
+                    <button
+                      disabled={busy || !expanded.size}
+                      onClick={() => setExpanded(new Set())}
+                    >
+                      Свернуть все
+                    </button>
+                  </div>
                   <div className="tree">
-                    {pageOf(matches, currentPage).map((server) => (
-                      <details open key={server.id}>
-                        <summary>{node(server)}</summary>
-                        <div className="branch">
-                          {filtered.instances
-                            .filter((i) => i.parentId === server.id)
-                            .map((instance) => (
-                              <details open key={instance.id}>
-                                <summary>{node(instance)}</summary>
-                                <div className="branch">
-                                  {filtered.databases
-                                    .filter((d) => d.parentId === instance.id)
-                                    .map((db) => (
-                                      <div key={db.id}>{node(db)}</div>
-                                    ))}
-                                </div>
-                              </details>
-                            ))}
-                        </div>
-                      </details>
-                    ))}
+                    <CatalogTree
+                      catalog={filtered}
+                      servers={pageOf(matches, currentPage)}
+                      expanded={expanded}
+                      onToggle={toggleBranch}
+                      renderNode={node}
+                    />
                     {matches.length === 0 && (
                       <div className="empty">
                         {query
@@ -685,6 +712,9 @@ function App() {
               busy={busy}
               run={run}
               onImported={loadCatalog}
+              lookups={lookups}
+              error={error}
+              onDownloads={() => setView("downloads")}
             />
           )}
           {view === "favorites" && (
@@ -781,6 +811,15 @@ function App() {
                 contextMenu.object.id,
               ),
             )
+          }
+          onConnect={() =>
+            void run(async () => {
+              await api().ConnectToServer(
+                contextMenu.object.kind,
+                contextMenu.object.id,
+              );
+              setMessage("Клиент подключения запущен");
+            })
           }
           onPolicy={() => openPolicy(contextMenu.object)}
           onHistory={() => {

@@ -271,6 +271,11 @@ func (s *Service) deleteTree(kind, id string, version int64, fingerprint string)
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_events(actor_id,action,entity,object_id,details) VALUES($1,$2,$3,$4,$5)`, s.user.ID, action, entity, objectID, details); err != nil {
 		return DeletionPreview{}, importDatabaseError(err)
 	}
+	if kind == "all" {
+		if _, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity) SELECT id,'administration','Каталог очищен','Администратор удалил все записи каталога. История и пользователи сохранены.','catalog' FROM users WHERE state='active'`); err != nil {
+			return DeletionPreview{}, importDatabaseError(err)
+		}
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return DeletionPreview{}, importDatabaseError(err)
 	}

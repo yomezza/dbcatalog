@@ -38,7 +38,7 @@ export function ValueBadge({
   return (
     <span className={"value-badge " + tone}>
       <span className="badge-dot" aria-hidden="true" />
-      {value}
+      <span className="badge-text">{value}</span>
     </span>
   );
 }

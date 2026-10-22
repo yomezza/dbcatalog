@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"github.com/yomezza/test/internal/application"
 	"github.com/yomezza/test/internal/config"
 	"os"
 	"slices"
 )
 
-type App struct{ service *application.Service }
+type App struct {
+	service *application.Service
+	ctx     context.Context
+}
 
 func NewApp() (*App, error) {
 	path, err := config.Path()
@@ -83,4 +87,12 @@ func (a *App) GetPolicyHistory(id string) ([]application.HistoryEntry, error) {
 
 func (a *App) GetAudit(filter application.AuditFilter) (application.AuditPage, error) {
 	return a.service.GetAudit(filter)
+}
+
+func (a *App) GetStatistics() (application.Statistics, error) { return a.service.GetStatistics() }
+func (a *App) GetNotifications(page int, unreadOnly bool) (application.NotificationPage, error) {
+	return a.service.GetNotifications(page, unreadOnly)
+}
+func (a *App) MarkNotificationsRead(ids []string, all bool) error {
+	return a.service.MarkNotificationsRead(ids, all)
 }

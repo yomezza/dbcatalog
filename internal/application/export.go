@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"encoding/base64"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,9 @@ import (
 func (s *Service) ExportExcel() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.exportExcelLocked()
+}
+func (s *Service) exportExcelLocked() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	tx, err := s.readTransaction(ctx, false, false)
@@ -54,7 +58,15 @@ func (s *Service) ExportExcel() (string, error) {
 	if err = query.Err(); err != nil {
 		return "", importDatabaseError(err)
 	}
-	data, err := spreadsheet.Write(rows)
+	stats, err := loadStatistics(ctx, tx)
+	if err != nil {
+		return "", err
+	}
+	summary := [][2]string{{"Показатель", "Значение"}, {"Записи серверов", strconv.FormatInt(stats.Servers, 10)}, {"Уникальные имена серверов", strconv.FormatInt(stats.UniqueServers, 10)}, {"Пары сервер / адрес", strconv.FormatInt(stats.ServerAddresses, 10)}, {"Экземпляры СУБД", strconv.FormatInt(stats.Instances, 10)}, {"Базы данных", strconv.FormatInt(stats.Databases, 10)}, {"БД с активной эффективной политикой РК", strconv.FormatInt(stats.ProtectedDatabases, 10)}, {"БД без политики РК", strconv.FormatInt(stats.UnprotectedDatabases, 10)}, {"БД с отключённой политикой РК", strconv.FormatInt(stats.DisabledDatabases, 10)}}
+	for _, d := range stats.DBMS {
+		summary = append(summary, [2]string{"БД: " + d.Name, strconv.FormatInt(d.Databases, 10)})
+	}
+	data, err := spreadsheet.WriteWithSummary(rows, summary)
 	if err != nil {
 		return "", err
 	}

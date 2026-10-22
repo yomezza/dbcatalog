@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { newObject } from "../src/api";
 
-async function login(page: Page, role = "admin") {
+async function login(page: Page, role = "admin", expand = true) {
   const server = {
     ...newObject("server"),
     id: "s1",
@@ -128,12 +128,19 @@ async function login(page: Page, role = "admin") {
   await expect(
     page.getByRole("heading", { name: "Общий каталог", exact: true }),
   ).toBeVisible();
+  if (expand)
+    await page
+      .getByRole("button", { name: "Раскрыть все", exact: true })
+      .click();
 }
 test("right-click adds child with the selected server and personal favorites can be removed", async ({
   page,
 }) => {
   await login(page);
-  await page.getByRole("button", { name: /host-a/ }).click({ button: "right" });
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "host-a" })
+    .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Добавить экземпляр СУБД" }).click();
   await expect(
     page.getByRole("combobox", { name: "Сервер *", exact: true }),
@@ -144,7 +151,10 @@ test("right-click adds child with the selected server and personal favorites can
       .locator("option"),
   ).toHaveCount(6);
   await page.getByRole("button", { name: "Отмена", exact: true }).click();
-  await page.getByRole("button", { name: /host-a/ }).click({ button: "right" });
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "host-a" })
+    .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Добавить в избранное" }).click();
   await page.getByRole("button", { name: "★ Избранное", exact: true }).click();
   await expect(
@@ -209,7 +219,8 @@ test("viewer context menu has personal actions but no mutation commands", async 
 }) => {
   await login(page, "viewer");
   await page
-    .getByRole("button", { name: /pg-main/ })
+    .locator(".tree-node")
+    .filter({ hasText: "pg-main" })
     .click({ button: "right" });
   await expect(
     page.getByRole("menuitem", { name: "Добавить в избранное" }),
@@ -231,7 +242,8 @@ test("instance context menu opens a policy with the requested backup type choice
 }) => {
   await login(page);
   await page
-    .getByRole("button", { name: /pg-main/ })
+    .locator(".tree-node")
+    .filter({ hasText: "pg-main" })
     .click({ button: "right" });
   await page
     .getByRole("menuitem", {
@@ -335,7 +347,9 @@ test("pipe AND search follows one branch and card flags have distinct colors", a
   const search = page.getByRole("textbox", { name: "Поиск в каталоге" });
   await search.fill("host-a | payroll");
   await expect(page.getByRole("button", { name: /payroll/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /pg-main/ })).toBeVisible();
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "pg-main" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: /payroll/ }).click();
   await expect(page.locator(".object-card .value-badge.production")).toHaveText(
     "Промышленный",
@@ -345,13 +359,15 @@ test("pipe AND search follows one branch and card flags have distinct colors", a
   );
   await page
     .locator(".object-card")
-    .screenshot({ path: "/tmp/catalogdb-card-030.png" });
+    .screenshot({ path: "/tmp/catalogdb-card-040.png" });
   await search.fill("host-a | missing");
   await expect(
     page.getByText("Совпадений не найдено", { exact: true }),
   ).toBeVisible();
   await search.fill("host-a | pg-main | Тестовый");
-  await expect(page.getByRole("button", { name: /pg-main/ })).toBeVisible();
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "pg-main" }),
+  ).toBeVisible();
 });
 test("parent deletion displays server-calculated child counts and sends the preview fingerprint", async ({
   page,
@@ -396,7 +412,10 @@ test("parent deletion displays server-calculated child counts and sends the prev
       },
     });
   });
-  await page.getByRole("button", { name: /host-a/ }).click({ button: "right" });
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "host-a" })
+    .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Удалить", exact: true }).click();
   const dialog = page.getByRole("dialog", {
     name: "Подтверждение удаления",
@@ -564,4 +583,305 @@ test("audit filters send all terms and show details of a deleted object", async 
   await expect(
     page.locator(".audit-detail").getByText("Базы данных", { exact: true }),
   ).toBeVisible();
+});
+
+test("catalog starts collapsed and opens each branch by double click or arrow", async ({
+  page,
+}) => {
+  await login(page, "admin", false);
+  await expect(page.getByRole("button", { name: /pg-main/ })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: /host-a/ })
+    .filter({ has: page.locator(".node-icon") })
+    .dblclick();
+  await expect(
+    page
+      .getByRole("button", { name: /pg-main/ })
+      .filter({ has: page.locator(".node-icon") }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /payroll/ })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Раскрыть ветку pg-main", exact: true })
+    .click();
+  await expect(page.getByRole("button", { name: /payroll/ })).toBeVisible();
+  await page.getByRole("button", { name: "Свернуть все", exact: true }).click();
+  await expect(page.getByRole("button", { name: /payroll/ })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Раскрыть ветку host-a", exact: true })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Свернуть ветку host-a", exact: true }),
+  ).toHaveAttribute("aria-expanded", "true");
+});
+test("audit details are a modal and restore focus after Escape", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() =>
+    Object.assign(window.go!.main.App, {
+      GetAudit: async () => ({
+        events: [
+          {
+            id: "1",
+            actor: "admin",
+            actionLabel: "Очистка каталога",
+            entity: "catalog",
+            createdAt: new Date().toISOString(),
+            details: { databases: 4 },
+          },
+        ],
+        total: 1,
+        page: 0,
+        pageSize: 25,
+        actors: [],
+        actions: {},
+      }),
+    }),
+  );
+  await page
+    .getByRole("button", { name: "≡ Журнал аудита", exact: true })
+    .click();
+  const more = page.getByRole("button", { name: "Подробнее", exact: true });
+  await more.click();
+  const dialog = page.getByRole("dialog", { name: "Подробности события" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Базы данных", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(more).toBeFocused();
+});
+test("download history opens files, reveals folders and saves a copy", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const g = window as unknown as { __downloadActions: string[] };
+    g.__downloadActions = [];
+    Object.assign(window.go!.main.App, {
+      ListDownloads: async () => [
+        {
+          id: "f1",
+          name: "Каталог.xlsx",
+          category: "Экспорт каталога",
+          createdAt: new Date().toISOString(),
+          size: 4096,
+          available: true,
+        },
+      ],
+      OpenDownload: async (id: string) =>
+        g.__downloadActions.push("open:" + id),
+      ShowDownload: async (id: string) =>
+        g.__downloadActions.push("show:" + id),
+      SaveDownloadAs: async (id: string) => {
+        g.__downloadActions.push("save:" + id);
+        return true;
+      },
+    });
+  });
+  await page.getByRole("button", { name: "↓ Загрузки", exact: true }).click();
+  await expect(page.getByText("Каталог.xlsx", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Открыть", exact: true }).click();
+  await page.getByRole("button", { name: "В папке", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Сохранить как…", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toHaveText("Копия файла сохранена");
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { __downloadActions: string[] })
+          .__downloadActions,
+    ),
+  ).toEqual(["open:f1", "show:f1", "save:f1"]);
+});
+test("an import error can be corrected and revalidated before confirmation", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const values = Array(21).fill("");
+    values[0] = "one";
+    values[1] = "pg-main";
+    values[5] = "PostgreSQL";
+    const preview = {
+      token: "before",
+      sheet: "Каталог",
+      columns: 21,
+      total: 1,
+      valid: 0,
+      ignored: 0,
+      secretsIgnored: 0,
+      backupRows: 0,
+      rows: [
+        {
+          row: 2,
+          server: "",
+          instance: "pg-main",
+          database: "one",
+          errors: ["Не заполнено: Имя сервера"],
+          values,
+        },
+      ],
+    };
+    Object.assign(window.go!.main.App, {
+      PreviewExcel: async () => preview,
+      RevalidateExcel: async (
+        token: string,
+        edits: { row: number; values: string[] }[],
+      ) => {
+        if (token !== "before" || edits[0].values[4] !== "fixed-host")
+          throw new Error("Некорректные исправления");
+        return {
+          ...preview,
+          token: "after",
+          valid: 1,
+          rows: [
+            {
+              ...preview.rows[0],
+              server: "fixed-host",
+              errors: [],
+              values: edits[0].values,
+            },
+          ],
+        };
+      },
+      ApplyExcel: async (token: string) => {
+        if (token !== "after") throw new Error("Старый токен");
+        return {
+          serversCreated: 1,
+          instancesCreated: 1,
+          databasesCreated: 1,
+          objectsUpdated: 0,
+          skipped: 0,
+        };
+      },
+    });
+  });
+  await page
+    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .click();
+  await page
+    .getByLabel("Файл каталога (до 20 МБ)")
+    .setInputFiles({
+      name: "bad.xlsx",
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from("mock"),
+    });
+  await page.getByRole("button", { name: "Исправить", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Исправление строки 2" });
+  await dialog.getByLabel("Имя сервера", { exact: true }).fill("fixed-host");
+  await dialog
+    .getByRole("button", { name: "Проверить исправления", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("cell", { name: "fixed-host", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Подтвердить импорт 1 строк", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Импорт завершён");
+});
+test("notification inbox marks only selected events and navigates to a collapsed object", async ({
+  page,
+}) => {
+  await login(page, "viewer", false);
+  await page.evaluate(() => {
+    let read = false;
+    Object.assign(window.go!.main.App, {
+      GetNotifications: async () => ({
+        items: [
+          {
+            id: "n1",
+            category: "favorite",
+            title: "Изменён избранный объект",
+            body: "payroll",
+            entity: "database",
+            objectId: "d1",
+            createdAt: new Date().toISOString(),
+            readAt: read ? new Date().toISOString() : null,
+          },
+        ],
+        unread: read ? 0 : 1,
+        total: 1,
+        page: 0,
+      }),
+      MarkNotificationsRead: async (ids: string[], all: boolean) => {
+        if (all || ids[0] === "n1") read = true;
+      },
+    });
+  });
+  await page.getByRole("button", { name: /Уведомления/ }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Изменён избранный объект",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Перейти", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Общий каталог", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".tree-node.selected")).toContainText("payroll");
+  await expect(page.locator(".nav-counter")).toHaveCount(0);
+});
+test("server connection action surfaces a missing-client error", async ({
+  page,
+}) => {
+  await login(page, "viewer");
+  await page.evaluate(() =>
+    Object.assign(window.go!.main.App, {
+      ConnectToServer: async (kind: string, id: string) => {
+        if (kind !== "database" || id !== "d1")
+          throw new Error("Неверный объект");
+        throw new Error(
+          "Не найден клиент ssh.exe. Установите соответствующий компонент Windows",
+        );
+      },
+    }),
+  );
+  await page
+    .getByRole("button", { name: /payroll/ })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Подключение к серверу", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Не найден клиент ssh.exe",
+  );
+});
+test("statistics shows PostgreSQL counts and links to catalog search", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() =>
+    Object.assign(window.go!.main.App, {
+      GetStatistics: async () => ({
+        servers: 1,
+        uniqueServers: 1,
+        serverAddresses: 1,
+        instances: 1,
+        databases: 1,
+        policies: 0,
+        enabledPolicies: 0,
+        protectedDatabases: 0,
+        unprotectedDatabases: 1,
+        disabledDatabases: 0,
+        dbms: [{ name: "PostgreSQL", instances: 1, databases: 1 }],
+        statuses: [],
+        environments: [],
+        generatedAt: new Date().toISOString(),
+      }),
+    }),
+  );
+  await page.getByRole("button", { name: "▥ Статистика", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Эффективная политика РК", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /PostgreSQL/ }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Поиск в каталоге" }),
+  ).toHaveValue("PostgreSQL");
+  await expect(page.getByRole("button", { name: /payroll/ })).toBeVisible();
 });

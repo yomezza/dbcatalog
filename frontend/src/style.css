@@ -957,3 +957,242 @@ td {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Consistent compact badges, including long dictionary and responsibility values. */
+.value-badge {
+  padding: 3px 7px;
+  line-height: 1.35;
+  gap: 5px;
+  align-self: flex-start;
+  justify-self: start;
+  flex: 0 1 auto;
+  vertical-align: middle;
+  min-height: 23px;
+  box-sizing: border-box;
+}
+.value-badge .badge-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.object-flags {
+  gap: 8px;
+  padding: 0 24px 18px;
+  align-items: flex-start;
+}
+.badge-list {
+  gap: 8px;
+  align-items: flex-start;
+}
+.card-field dd {
+  margin: 0;
+}
+.card-field dt {
+  margin-bottom: 8px;
+}
+.modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+.modal-heading h2 {
+  margin: 0;
+}
+.modal-heading > button {
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+.audit-detail {
+  max-height: 85vh;
+  overflow: auto;
+}
+.import-row-editor {
+  max-width: 900px;
+  max-height: 88vh;
+  overflow: auto;
+}
+.import-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+  margin-bottom: 20px;
+}
+.row-errors {
+  color: #a74a59;
+  font-size: 12px;
+  line-height: 1.7;
+  padding-left: 20px;
+}
+.tree-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.tree-toggle {
+  border: 0;
+  background: transparent;
+  padding: 7px 3px;
+  color: #6e899a;
+  font-size: 18px;
+  min-width: 24px;
+  flex: 0 0 24px;
+}
+.tree-toggle-spacer {
+  width: 24px;
+  flex: 0 0 24px;
+}
+.tree-controls {
+  padding: 8px 16px;
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #edf1f5;
+}
+.tree-controls button {
+  font-size: 10px;
+  padding: 5px 8px;
+}
+.empty-branch {
+  font-size: 11px;
+  color: #8b9da9;
+  padding: 8px;
+}
+.table-caption {
+  display: block;
+  font-size: 11px;
+  color: #8294a2;
+  margin-top: 5px;
+}
+.downloads-table {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+.downloads-table .actions {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nav-counter {
+  background: #337d93;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  margin-left: auto;
+}
+aside nav {
+  overflow-y: auto;
+  min-height: 0;
+}
+.notification-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.notification-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: #fff;
+  border: 1px solid #e0e8ef;
+  border-radius: 8px;
+  padding: 18px 22px;
+}
+.notification-item.unread {
+  border-left: 3px solid #337d93;
+  background: #f5fafc;
+}
+.notification-copy {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notification-copy small {
+  font-size: 10px;
+  color: #8798a5;
+}
+.notification-copy h2 {
+  font-size: 14px;
+  margin: 7px 0;
+}
+.notification-copy p {
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.6;
+}
+.statistics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 24px;
+}
+.distribution-row {
+  display: block;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  padding: 10px 0;
+}
+.distribution-row > span:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+.distribution-row small {
+  color: #8294a2;
+  white-space: nowrap;
+}
+.distribution-track {
+  display: block;
+  background: #eef3f6;
+  height: 6px;
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.distribution-track > span {
+  display: block;
+  height: 100%;
+  background: #4791a4;
+  border-radius: 3px;
+}
+@media (max-width: 1100px) {
+  .statistics-grid {
+    grid-template-columns: 1fr;
+  }
+  .notification-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .import-editor-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Keep navigation and sign-out reachable on short WebView windows. */
+aside {
+  position: sticky;
+  top: 36px;
+  height: calc(100vh - 36px);
+  min-height: 0;
+}
+aside nav {
+  flex: 1;
+  align-content: start;
+  overflow-y: auto;
+}
+aside nav button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sidebar-bottom {
+  flex-shrink: 0;
+  padding-top: 18px;
+}
+
+.titlebar {position:sticky;top:0;z-index:3;}

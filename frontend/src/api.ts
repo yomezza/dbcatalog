@@ -83,6 +83,7 @@ export interface ImportRowPreview {
   instance: string;
   database: string;
   errors: string[];
+  values: string[];
 }
 export interface ImportPreview {
   token: string;
@@ -182,7 +183,71 @@ export interface AuditPage {
   actors: { id: string; login: string }[];
   actions: Record<string, string>;
 }
+export interface DownloadEntry {
+  id: string;
+  name: string;
+  category: string;
+  createdAt: string;
+  size: number;
+  sha256: string;
+  available: boolean;
+}
+export interface Notification {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+  entity: string;
+  objectId: string;
+  createdAt: string;
+  readAt: string | null;
+}
+export interface NotificationPage {
+  items: Notification[];
+  unread: number;
+  total: number;
+  page: number;
+}
+export interface Distribution {
+  name: string;
+  instances: number;
+  databases: number;
+}
+export interface Statistics {
+  servers: number;
+  uniqueServers: number;
+  serverAddresses: number;
+  instances: number;
+  databases: number;
+  policies: number;
+  enabledPolicies: number;
+  protectedDatabases: number;
+  unprotectedDatabases: number;
+  disabledDatabases: number;
+  dbms: Distribution[];
+  statuses: Distribution[];
+  environments: Distribution[];
+  generatedAt: string;
+}
 interface Backend {
+  GetStatistics(): Promise<Statistics>;
+  GetNotifications(
+    page: number,
+    unreadOnly: boolean,
+  ): Promise<NotificationPage>;
+  MarkNotificationsRead(ids: string[], all: boolean): Promise<void>;
+  ListDownloads(): Promise<DownloadEntry[]>;
+  ExportToDownloads(): Promise<DownloadEntry>;
+  ExportImportPreview(token: string): Promise<DownloadEntry>;
+  OpenDownload(id: string): Promise<void>;
+  ShowDownload(id: string): Promise<void>;
+  SaveDownloadAs(id: string): Promise<boolean>;
+  ConnectToServer(kind: Kind, id: string): Promise<void>;
+  RevalidateExcel(
+    token: string,
+    edits: { row: number; values: string[] }[],
+  ): Promise<ImportPreview>;
+
   ListPolicies(): Promise<Policy[]>;
   SavePolicy(p: Policy): Promise<Policy>;
   DeletePolicy(id: string, version: number): Promise<void>;

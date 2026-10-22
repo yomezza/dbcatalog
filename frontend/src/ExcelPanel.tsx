@@ -1,18 +1,38 @@
 import { useState } from "react";
-import { api, type ImportPreview, type ImportResult } from "./api";
+import {
+  api,
+  type ImportPreview,
+  type ImportResult,
+  type ImportRowPreview,
+  type Lookups,
+} from "./api";
+import { ImportRowEditor } from "./ImportRowEditor";
 interface Props {
+  lookups: Lookups;
+  error: string;
+  onDownloads: () => void;
   canEdit: boolean;
   busy: boolean;
   run: (task: () => Promise<void>) => Promise<void>;
   onImported: () => Promise<unknown>;
 }
-export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
+export function ExcelPanel({
+  canEdit,
+  busy,
+  run,
+  onImported,
+  lookups,
+  error,
+  onDownloads,
+}: Props) {
   const [preview, setPreview] = useState<ImportPreview | null>(null),
     [result, setResult] = useState<ImportResult | null>(null),
     [skipInvalid, setSkipInvalid] = useState(false),
     [catalogOnly, setCatalogOnly] = useState(false),
     [onlyErrors, setOnlyErrors] = useState(false),
-    [page, setPage] = useState(0);
+    [page, setPage] = useState(0),
+    [editing, setEditing] = useState<ImportRowPreview | null>(null),
+    [downloadNotice, setDownloadNotice] = useState("");
   async function fileSelected(file: File) {
     setPreview(null);
     setResult(null);
@@ -31,18 +51,9 @@ export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
     setPreview(await api().PreviewExcel(encoded));
   }
   async function exportFile() {
-    const encoded = await api().ExportExcel();
-    const bytes = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
-    const url = URL.createObjectURL(
-      new Blob([bytes], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "CatalogDB.xlsx";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const file = await api().ExportToDownloads();
+    setDownloadNotice(`Файл «${file.name}» сохранён в загрузки.`);
+    await api().SaveDownloadAs(file.id);
   }
   const filtered =
     preview?.rows.filter((r) => !onlyErrors || r.errors.length > 0) ?? [];
@@ -63,6 +74,12 @@ export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
           Экспорт каталога XLSX
         </button>
       </div>
+      {downloadNotice && (
+        <div className="notice success" role="status">
+          {downloadNotice}{" "}
+          <button onClick={onDownloads}>Открыть загрузки</button>
+        </div>
+      )}
       {canEdit && (
         <section className="excel-panel">
           <h2>Импорт XLS / XLSX</h2>
@@ -136,6 +153,7 @@ export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
                       <th>Экземпляр</th>
                       <th>SID</th>
                       <th>Проверка</th>
+                      <th>Исправления</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -149,6 +167,14 @@ export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
                           <td>{r.database || "—"}</td>
                           <td>
                             {r.errors.length ? r.errors.join("; ") : "Готово"}
+                          </td>
+                          <td>
+                            <button
+                              disabled={busy}
+                              onClick={() => setEditing(r)}
+                            >
+                              {r.errors.length ? "Исправить" : "Изменить"}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -194,6 +220,23 @@ export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
                   архива
                 </label>
               )}
+              <div className="actions">
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      const file = await api().ExportImportPreview(
+                        preview.token,
+                      );
+                      setDownloadNotice(
+                        `Файл «${file.name}» сохранён в загрузки.`,
+                      );
+                    })
+                  }
+                >
+                  Скачать исправленную копию (21 колонка)
+                </button>
+              </div>
               <button
                 className="primary"
                 disabled={
@@ -229,6 +272,27 @@ export function ExcelPanel({ canEdit, busy, run, onImported }: Props) {
             </div>
           )}
         </section>
+      )}
+      {editing && preview && (
+        <ImportRowEditor
+          row={editing}
+          lookups={lookups}
+          busy={busy}
+          error={error}
+          onClose={() => setEditing(null)}
+          onSave={async (values) => {
+            await run(async () => {
+              const next = await api().RevalidateExcel(preview.token, [
+                { row: editing.row, values },
+              ]);
+              setPreview(next);
+              setEditing(null);
+              setSkipInvalid(false);
+              setCatalogOnly(false);
+              setPage(0);
+            });
+          }}
+        />
       )}
       {!canEdit && (
         <div className="info">

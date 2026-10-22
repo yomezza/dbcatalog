@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type AuditEvent, type AuditFilter, type AuditPage } from "./api";
+import { Modal } from "./Modal";
 import { Field } from "./components";
 const entityLabels: Record<string, string> = {
   server: "Сервер",
@@ -228,7 +229,11 @@ export function AuditPanel({
         </div>
       </section>
       {selected && (
-        <section className="settings-card audit-detail">
+        <Modal
+          title="Подробности события"
+          onClose={() => setSelected(null)}
+          className="compact audit-detail"
+        >
           <div className="eyebrow">СОБЫТИЕ № {selected.id}</div>
           <h2>{selected.actionLabel}</h2>
           <dl className="settings-fields">
@@ -255,7 +260,7 @@ export function AuditPanel({
               </div>
             ))}
           </dl>
-        </section>
+        </Modal>
       )}
     </>
   );
