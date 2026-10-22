@@ -106,6 +106,10 @@ func (s *Service) attachImportPolicies(ctx context.Context, tx pgx.Tx, plan *imp
 	if err != nil {
 		return err
 	}
+	choices, err := loadChoices(ctx, tx)
+	if err != nil {
+		return err
+	}
 	idx, err := loadIndex(ctx, tx)
 	if err != nil {
 		return err
@@ -224,7 +228,7 @@ func (s *Service) attachImportPolicies(ctx context.Context, tx pgx.Tx, plan *imp
 			} else {
 				p = normalized
 				if p.BackupType != "Не указано" {
-					if e = validateChoice(ctx, tx, "backupType", p.BackupType, ""); e != nil {
+					if e = choices.validate("backupType", p.BackupType, ""); e != nil {
 						candidate.Errors = append(candidate.Errors, e.Error())
 					}
 				}

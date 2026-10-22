@@ -152,3 +152,5 @@ func (a *App) ExportSelection(ids []string) (downloads.Entry, error) {
 func (a *App) PreviewExcelPolicies(token string, c application.PolicyImportConfig) (application.ImportPreview, error) {
 	return a.service.PreviewExcelPolicies(token, c)
 }
+
+func (a *App) GetWorkspace() (application.Workspace, error) { return a.service.GetWorkspace() }

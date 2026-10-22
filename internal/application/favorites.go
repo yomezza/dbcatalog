@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"time"
 
 	"github.com/yomezza/test/internal/database"
@@ -18,10 +19,13 @@ func (s *Service) ListFavorites() ([]Object, error) {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	return loadFavorites(ctx, tx, s.user.ID)
+}
+func loadFavorites(ctx context.Context, tx pgx.Tx, userID string) ([]Object, error) {
 	out := []Object{}
 	for _, kind := range []string{"server", "instance", "database"} {
 		t, _ := table(kind)
-		rows, err := tx.Query(ctx, "SELECT to_jsonb(t) FROM "+t+" t JOIN favorites f ON f."+kind+"_id=t.id WHERE f.user_id=$1 ORDER BY lower(t.name),t.id", s.user.ID)
+		rows, err := tx.Query(ctx, "SELECT to_jsonb(t) FROM "+t+" t JOIN favorites f ON f."+kind+"_id=t.id WHERE f.user_id=$1 ORDER BY lower(t.name),t.id", userID)
 		if err != nil {
 			return nil, errors.New(database.PublicError(err))
 		}

@@ -156,6 +156,10 @@ func (s *Service) restoreDeletedPlan(ctx context.Context, tx pgx.Tx, kind, id st
 	return out, nil
 }
 func (s *Service) restoreDeletedRecords(ctx context.Context, tx pgx.Tx, p RestorePreview) error {
+	writer, err := s.catalogWriter(ctx, tx)
+	if err != nil {
+		return err
+	}
 	for _, r := range p.Items {
 		var version int64
 		if err := tx.QueryRow(ctx, `SELECT coalesce(max(version),0) FROM record_versions WHERE entity=$1 AND object_id=$2`, r.Kind, r.ID).Scan(&version); err != nil {
@@ -168,7 +172,7 @@ func (s *Service) restoreDeletedRecords(ctx context.Context, tx pgx.Tx, p Restor
 			}
 			o.ID = r.ID
 			o.Version = version
-			if _, err := s.savePolicyMode(ctx, tx, o, true, true); err != nil {
+			if _, err := writer.savePolicy(ctx, o, writeRecreateDeleted); err != nil {
 				return fmt.Errorf("%s: проверьте родителя и занятость назначения: %w", r.Name, err)
 			}
 		} else {
@@ -188,7 +192,7 @@ func (s *Service) restoreDeletedRecords(ctx context.Context, tx pgx.Tx, p Restor
 					return fmt.Errorf("Имя сервера «%s» уже занято", o.Name)
 				}
 			}
-			if _, err := s.saveObjectMode(ctx, tx, o, true, true); err != nil {
+			if _, err := writer.saveObject(ctx, o, writeRecreateDeleted); err != nil {
 				return fmt.Errorf("%s: проверьте родителя и конфликт имени: %w", r.Name, err)
 			}
 		}

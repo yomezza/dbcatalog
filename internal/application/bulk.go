@@ -56,6 +56,10 @@ func (s *Service) buildBulk(ctx context.Context, tx pgx.Tx, refs []ObjectRef, pa
 		ids = append(ids, r.ID)
 	}
 	sort.Strings(ids)
+	choices, err := loadChoices(ctx, tx)
+	if err != nil {
+		return out, err
+	}
 	rows, err := tx.Query(ctx, `SELECT to_jsonb(d) FROM databases d WHERE id=ANY($1::uuid[]) ORDER BY id`, ids)
 	if err != nil {
 		return out, importDatabaseError(err)
@@ -105,7 +109,7 @@ func (s *Service) buildBulk(ctx context.Context, tx pgx.Tx, refs []ObjectRef, pa
 		if err != nil {
 			return out, err
 		}
-		if err = validateObjectChoices(ctx, tx, after, before); err != nil {
+		if err = choices.validateObject(after, before); err != nil {
 			return out, err
 		}
 		if !reflect.DeepEqual(before, after) {
@@ -168,8 +172,12 @@ func (s *Service) ApplyBulkEdit(refs []ObjectRef, patch BulkPatch, fingerprint s
 	if plan.Fingerprint != fingerprint {
 		return 0, errors.New("Предпросмотр изменился. Проверьте его заново")
 	}
+	writer, err := s.catalogWriter(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
 	for _, item := range plan.Items {
-		if _, err = s.saveObjectTx(ctx, tx, item.After); err != nil {
+		if _, err = writer.saveObject(ctx, item.After, writeNormal); err != nil {
 			return 0, err
 		}
 	}

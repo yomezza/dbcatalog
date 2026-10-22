@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { indexCatalog } from "./catalog/indexes";
 import { oracleGroupKey } from "./catalog";
 import type { ReactNode } from "react";
 import type { Catalog, CatalogObject } from "./api";
@@ -14,20 +16,10 @@ export function CatalogTree({
   onToggle: (id: string) => void;
   renderNode: (o: CatalogObject) => ReactNode;
 }) {
-  const byServer = new Map<string, CatalogObject[]>(),
-    byInstance = new Map<string, CatalogObject[]>(),
-    oracleByServer = new Map<string, CatalogObject[]>();
-  for (const i of catalog.instances) {
-    const a = byServer.get(i.parentId) ?? [];
-    a.push(i);
-    byServer.set(i.parentId, a);
-  }
-  for (const d of catalog.databases) {
-    const map = d.dbms === "Oracle Database" ? oracleByServer : byInstance;
-    const a = map.get(d.parentId) ?? [];
-    a.push(d);
-    map.set(d.parentId, a);
-  }
+  const { byServer, byInstance, oracleByServer } = useMemo(
+    () => indexCatalog(catalog),
+    [catalog],
+  );
   function branch(o: CatalogObject) {
     const children =
       o.kind === "server"

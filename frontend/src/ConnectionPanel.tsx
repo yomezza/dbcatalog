@@ -1,5 +1,5 @@
 import React from "react";
-import type { Connection, Status } from "./api";
+import type { Connection } from "./api";
 import { Field } from "./components";
 interface Props {
   connection: Connection;

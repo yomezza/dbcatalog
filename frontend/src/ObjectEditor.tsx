@@ -1,5 +1,5 @@
 import { objectPath } from "./objectPath";
-import React, { useId } from "react";
+import { useId } from "react";
 import {
   type Attributes,
   type Catalog,

@@ -15,7 +15,7 @@ import (
 	"github.com/yomezza/test/internal/security"
 )
 
-func catalogFixture(t *testing.T) (*Service, *pgxpool.Pool, string) {
+func catalogFixture(t testing.TB) (*Service, *pgxpool.Pool, string) {
 	t.Helper()
 	dsn := os.Getenv("CATALOGDB_TEST_DATABASE_URL")
 	if dsn == "" {

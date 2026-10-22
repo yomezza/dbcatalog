@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"sort"
 	"time"
 
@@ -21,6 +22,9 @@ func (s *Service) GetLookups() (map[string][]string, error) {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	return loadLookups(ctx, tx)
+}
+func loadLookups(ctx context.Context, tx pgx.Tx) (map[string][]string, error) {
 	result := map[string][]string{}
 	rows, err := tx.Query(ctx, `SELECT category,value FROM lookup_values ORDER BY category,position,value`)
 	if err != nil {
@@ -38,33 +42,42 @@ func (s *Service) GetLookups() (map[string][]string, error) {
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	for _, key := range []string{"location", "serviceOrganization", "supervisor", "responsible"} {
-		rows, err := tx.Query(ctx, `SELECT DISTINCT btrim(attributes->>$1) FROM (SELECT attributes FROM servers UNION ALL SELECT attributes FROM instances UNION ALL SELECT attributes FROM databases) t WHERE length(btrim(attributes->>$1))>0`, key)
-		if err != nil {
-			return nil, errors.New(database.PublicError(err))
-		}
-		seen := map[string]bool{}
+
+	keys := []string{"location", "serviceOrganization", "supervisor", "responsible"}
+	seen := map[string]map[string]bool{}
+	extra := map[string][]string{}
+	for _, key := range keys {
+		seen[key] = map[string]bool{}
 		for _, v := range result[key] {
-			seen[v] = true
+			seen[key][v] = true
 		}
-		extra := []string{}
-		for rows.Next() {
-			var v string
-			if err = rows.Scan(&v); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			if !seen[v] {
-				seen[v] = true
-				extra = append(extra, v)
-			}
+	}
+	rows, err = tx.Query(ctx, `SELECT DISTINCT category,value FROM(
+ SELECT attributes FROM servers UNION ALL SELECT attributes FROM instances UNION ALL SELECT attributes FROM databases
+ ) t CROSS JOIN LATERAL(VALUES
+ ('location',btrim(attributes->>'location')),('serviceOrganization',btrim(attributes->>'serviceOrganization')),
+ ('supervisor',btrim(attributes->>'supervisor')),('responsible',btrim(attributes->>'responsible'))
+ ) v(category,value) WHERE length(value)>0`)
+	if err != nil {
+		return nil, importDatabaseError(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var key, value string
+		if err = rows.Scan(&key, &value); err != nil {
+			return nil, importDatabaseError(err)
 		}
-		rows.Close()
-		if err = rows.Err(); err != nil {
-			return nil, err
+		if !seen[key][value] {
+			seen[key][value] = true
+			extra[key] = append(extra[key], value)
 		}
-		sort.Strings(extra)
-		result[key] = append(result[key], extra...)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, importDatabaseError(err)
+	}
+	for _, key := range keys {
+		sort.Strings(extra[key])
+		result[key] = append(result[key], extra[key]...)
 		if result[key] == nil {
 			result[key] = []string{}
 		}

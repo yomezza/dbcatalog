@@ -63,6 +63,15 @@ async function login(page: Page, role = "admin", expand = true) {
             }),
             IsSetupMode: async () => false,
             Login: async () => user,
+            GetWorkspace: async () => {
+              const backend = window.go!.main.App;
+              return {
+                catalog: await backend.GetCatalog(),
+                lookups: await backend.GetLookups(),
+                favorites: await backend.ListFavorites(),
+                policies: await backend.ListPolicies(),
+              };
+            },
             GetCatalog: async () => catalog,
             ListFavorites: async () => favorites,
             ListPolicies: async () => [],
@@ -1671,13 +1680,11 @@ test("policy import requires explicit missing parameters and a separate confirma
   await page
     .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
     .click();
-  await page
-    .getByLabel("Файл каталога (до 20 МБ)")
-    .setInputFiles({
-      name: "policies.xlsx",
-      mimeType: "application/octet-stream",
-      buffer: Buffer.from("mock"),
-    });
+  await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
+    name: "policies.xlsx",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("mock"),
+  });
   await page
     .getByRole("checkbox", {
       name: "Переносить политики РК вместе с каталогом",
@@ -1724,4 +1731,124 @@ test("policy import requires explicit missing parameters and a separate confirma
     .check();
   await confirm.click();
   await expect(page.getByRole("status")).toContainText("Политик создано: 1");
+});
+
+test("opening a favorite clears a filter that hides its branch", async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "payroll" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Добавить в избранное", exact: true })
+    .click();
+  await page.getByText("Фильтры баз данных", { exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Тип эксплуатации", exact: true })
+    .selectOption("Тестовый");
+  await expect(page.locator(".tree-node")).toHaveCount(0);
+  await page.getByRole("button", { name: "★ Избранное", exact: true }).click();
+  await page.getByRole("button", { name: "payroll", exact: true }).click();
+  await expect(page.locator(".tree-node.selected")).toContainText("payroll");
+  await page.getByText("Фильтры баз данных", { exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Тип эксплуатации", exact: true }),
+  ).toHaveValue("");
+});
+
+test("notification navigation uses the refreshed catalog to reveal a new server on the second page", async ({
+  page,
+}) => {
+  await login(page, "viewer", false);
+  await page.evaluate(() => {
+    const api = window.go!.main.App;
+    const original = api.GetCatalog;
+    Object.assign(api, {
+      GetCatalog: async () => {
+        const initial = await original();
+        const template = initial.servers[0];
+        const servers = Array.from({ length: 12 }, (_, i) => ({
+          ...template,
+          id: "new-s" + i,
+          name: "server-" + i,
+        }));
+        return {
+          servers,
+          instances: [],
+          databases: [
+            {
+              ...initial.databases[0],
+              id: "new-db",
+              name: "fresh-oracle",
+              dbms: "Oracle Database",
+              parentId: "new-s11",
+            },
+          ],
+        };
+      },
+      GetNotifications: async () => ({
+        page: 0,
+        total: 1,
+        unread: 1,
+        items: [
+          {
+            id: "n-new",
+            category: "catalog",
+            title: "Новая запись",
+            body: "Открыть",
+            entity: "database",
+            objectId: "new-db",
+            createdAt: "2026-10-22T10:00:00Z",
+            readAt: null,
+          },
+        ],
+      }),
+      MarkNotificationsRead: async () => {},
+    });
+  });
+  await page.getByRole("button", { name: /Уведомления/ }).click();
+  await page.getByRole("button", { name: "Перейти", exact: true }).click();
+  await expect(page.locator(".tree-node.selected")).toContainText(
+    "fresh-oracle",
+  );
+  await expect(page.locator(".pagination")).toContainText("Страница 2 из 2");
+});
+
+test("workspace refresh updates the selected card and invalidates selected database versions", async ({
+  page,
+}) => {
+  await login(page);
+  await page.locator(".tree-node").filter({ hasText: "payroll" }).click();
+  await page
+    .getByRole("checkbox", { name: "Выбрать БД payroll", exact: true })
+    .check();
+  await page.evaluate(() => {
+    const original = window.go!.main.App.GetCatalog;
+    Object.assign(window.go!.main.App, {
+      GetCatalog: async () => {
+        const c = await original();
+        return {
+          ...c,
+          databases: c.databases.map((d) => ({
+            ...d,
+            name: "payroll-updated",
+            version: 2,
+          })),
+        };
+      },
+    });
+  });
+  await page.getByRole("button", { name: "↻ Обновить", exact: true }).click();
+  await expect(page.locator(".object-card h2")).toHaveText("payroll-updated");
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Выбрать БД payroll-updated",
+      exact: true,
+    }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByRole("button", { name: "Массовое редактирование", exact: true }),
+  ).toBeDisabled();
 });

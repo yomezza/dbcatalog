@@ -1,5 +1,6 @@
-import type { Catalog, CatalogObject } from "./api";
-import { createSearchMatcher, searchTerms } from "./search";
+import { indexCatalog, type CatalogIndex } from "./indexes";
+import type { Catalog, CatalogObject } from "../api";
+import { createSearchMatcher, searchTerms } from "../search";
 function values(o: CatalogObject): unknown[] {
   return [
     o.name,
@@ -16,27 +17,14 @@ function values(o: CatalogObject): unknown[] {
   ];
 }
 // Match each complete ancestor path, never combine unrelated sibling databases.
-export function filterCatalog(c: Catalog, query: string): Catalog {
+export function filterCatalog(
+  c: Catalog,
+  query: string,
+  index: CatalogIndex = indexCatalog(c),
+): Catalog {
   if (!searchTerms(query).length) return c;
   const match = createSearchMatcher(query);
-  const byServer = new Map<string, CatalogObject[]>(),
-    byInstance = new Map<string, CatalogObject[]>();
-  for (const o of c.instances) {
-    const list = byServer.get(o.parentId) ?? [];
-    list.push(o);
-    byServer.set(o.parentId, list);
-  }
-  for (const o of c.databases) {
-    const list = byInstance.get(o.parentId) ?? [];
-    list.push(o);
-    byInstance.set(o.parentId, list);
-  }
-  const direct = new Map<string, CatalogObject[]>();
-  for (const d of c.databases.filter((d) => d.dbms === "Oracle Database")) {
-    const a = direct.get(d.parentId) ?? [];
-    a.push(d);
-    direct.set(d.parentId, a);
-  }
+  const { byServer, byInstance, oracleByServer: direct } = index;
   const servers: CatalogObject[] = [],
     instances: CatalogObject[] = [],
     databases: CatalogObject[] = [];
@@ -94,10 +82,11 @@ export function branchKeys(c: Catalog) {
 export function filterCatalogCriteria(
   c: Catalog,
   query: string,
-  f: import("./api").CatalogCriteria,
-  policies: import("./api").Policy[],
+  f: import("../api").CatalogCriteria,
+  policies: import("../api").Policy[],
+  index: CatalogIndex = indexCatalog(c),
 ): Catalog {
-  const base = filterCatalog(c, query);
+  const base = filterCatalog(c, query, index);
   if (
     !f.dbms &&
     !f.status &&
@@ -106,7 +95,7 @@ export function filterCatalogCriteria(
     (!f.policy || f.policy === "any")
   )
     return base;
-  const instances = new Map(c.instances.map((i) => [i.id, i])),
+  const instances = index.instances,
     direct = new Map(
       policies.filter((p) => p.kind === "database").map((p) => [p.objectId, p]),
     ),
@@ -145,7 +134,7 @@ export function filterCatalogCriteria(
     servers: base.servers.filter((s) => servers.has(s.id)),
   };
 }
-export const emptyCriteria = (): import("./api").CatalogCriteria => ({
+export const emptyCriteria = (): import("../api").CatalogCriteria => ({
   query: "",
   dbms: "",
   status: "",

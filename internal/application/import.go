@@ -50,6 +50,10 @@ func (s *Service) buildImportPlanExcluded(ctx context.Context, tx pgx.Tx, wb spr
 	if err != nil {
 		return nil, importDatabaseError(err)
 	}
+	choices, err := loadChoices(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
 	plan := &importPlan{excluded: excluded, workbook: wb, preview: ImportPreview{OriginalTotal: len(wb.Rows), ExcludedRows: []ImportRowPreview{}, Token: security.ID(), Sheet: wb.Sheet, Columns: wb.Columns, Total: 0, Ignored: wb.IgnoredRows, SecretsIgnored: 0, BackupRows: 0, Rows: []ImportRowPreview{}}, versions: map[string]objectStamp{}, expires: time.Now().Add(10 * time.Minute), userID: s.user.ID}
 	seenServers, seenInstances, seenDB := map[string]Object{}, map[string]Object{}, map[string]bool{}
 	firstServerRow := map[string]int{}
@@ -72,7 +76,7 @@ func (s *Service) buildImportPlanExcluded(ctx context.Context, tx pgx.Tx, wb spr
 			}
 		}
 		item := objectsFromRow(row)
-		validateImportItem(ctx, tx, &item)
+		validateImportItem(choices, &item)
 		sk, ik, dk := item.keys()
 		if idx.ambiguous[sk] {
 			item.errors = append(item.errors, "В каталоге несколько серверов с таким именем; устраните неоднозначность")
@@ -218,6 +222,10 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			return result, errors.New("Политики РК изменились. Повторите предпросмотр")
 		}
 	}
+	writer, err := s.catalogWriter(ctx, tx)
+	if err != nil {
+		return result, err
+	}
 	importedRows := map[int]bool{}
 	for _, item := range plan.items {
 		if len(item.errors) > 0 {
@@ -225,7 +233,7 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			continue
 		}
 		sk, ik, dk := item.keys()
-		server, err := s.saveImportedObject(ctx, tx, idx.servers[sk], item.server, &result)
+		server, err := writer.saveImportedObject(ctx, idx.servers[sk], item.server, &result)
 		if err != nil {
 			return ImportResult{}, err
 		}
@@ -234,14 +242,14 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			item.database.ParentID = server.ID
 		} else {
 			item.instance.ParentID = server.ID
-			instance, err := s.saveImportedObject(ctx, tx, idx.instances[ik], item.instance, &result)
+			instance, err := writer.saveImportedObject(ctx, idx.instances[ik], item.instance, &result)
 			if err != nil {
 				return ImportResult{}, err
 			}
 			idx.instances[ik] = instance
 			item.database.ParentID = instance.ID
 		}
-		db, err := s.saveImportedObject(ctx, tx, idx.databases[dk], item.database, &result)
+		db, err := writer.saveImportedObject(ctx, idx.databases[dk], item.database, &result)
 		if err != nil {
 			return ImportResult{}, err
 		}
@@ -264,7 +272,7 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 		if p.ObjectID == "" {
 			return ImportResult{}, errors.New("Объект назначения политики не найден")
 		}
-		if _, err = s.savePolicyTx(ctx, tx, p, false); err != nil {
+		if _, err = writer.savePolicy(ctx, p, writeNormal); err != nil {
 			return ImportResult{}, err
 		}
 		if p.ID == "" {

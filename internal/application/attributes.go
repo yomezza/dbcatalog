@@ -1,13 +1,9 @@
 package application
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/yomezza/test/internal/database"
 )
 
 type Attributes struct {
@@ -46,35 +42,27 @@ func normalizeAttributes(a Attributes) (Attributes, error) {
 	a.Administration = out
 	return a, nil
 }
-func validateChoice(ctx context.Context, tx pgx.Tx, category, value, previous string) error {
-	if value == "" || value == previous {
-		return nil
-	}
-	var found bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT FROM lookup_values WHERE category=$1 AND value=$2)`, category, value).Scan(&found); err != nil {
-		return errors.New(database.PublicError(err))
-	}
-	if !found {
-		label := map[string]string{"status": "Состояние", "environment": "Тип эксплуатации", "dbms": "Тип СУБД", "domain": "Доменное членство", "connectionMethod": "Подключение к серверу", "administration": "Работа АБД", "backupType": "Тип РК"}[category]
-		return errors.New("Выберите значение из справочника «" + label + "»")
-	}
-	return nil
-}
-func validateObjectChoices(ctx context.Context, tx pgx.Tx, o, old Object) error {
-	for _, v := range []struct{ category, value, previous string }{{"status", o.Status, old.Status}, {"environment", o.Environment, old.Environment}, {"domain", o.Attributes.Domain, old.Attributes.Domain}, {"connectionMethod", o.Attributes.ConnectionMethod, old.Attributes.ConnectionMethod}} {
-		if err := validateChoice(ctx, tx, v.category, v.value, v.previous); err != nil {
-			return err
+
+// Blank import cells preserve stored attributes; explicit editors handle clearing.
+func mergeAttributes(old, incoming Attributes) Attributes {
+	out := incoming
+	for _, field := range []struct {
+		dst      *string
+		previous string
+	}{
+		{&out.InformationSystem, old.InformationSystem}, {&out.ConnectionMethod, old.ConnectionMethod},
+		{&out.Domain, old.Domain}, {&out.Location, old.Location}, {&out.ServiceOrganization, old.ServiceOrganization},
+		{&out.Supervisor, old.Supervisor}, {&out.Responsible, old.Responsible}, {&out.OSVersion, old.OSVersion},
+		{&out.OSFamily, old.OSFamily}, {&out.PersonalData, old.PersonalData},
+	} {
+		if *field.dst == "" {
+			*field.dst = field.previous
 		}
 	}
-	if o.Kind == "instance" {
-		if err := validateChoice(ctx, tx, "dbms", o.DBMS, old.DBMS); err != nil {
-			return err
-		}
+	administration := incoming.Administration
+	if len(administration) == 0 {
+		administration = old.Administration
 	}
-	for _, v := range o.Attributes.Administration {
-		if err := validateChoice(ctx, tx, "administration", v, ""); err != nil {
-			return err
-		}
-	}
-	return nil
+	out.Administration = append([]string{}, administration...)
+	return out
 }

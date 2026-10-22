@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -14,40 +13,6 @@ import (
 	"github.com/yomezza/test/internal/spreadsheet"
 )
 
-type ImportRowPreview struct {
-	Row      int      `json:"row"`
-	Server   string   `json:"server"`
-	Instance string   `json:"instance"`
-	Database string   `json:"database"`
-	Errors   []string `json:"errors"`
-	Values   []string `json:"values"`
-}
-type ImportPreview struct {
-	WithPolicies   bool                    `json:"withPolicies"`
-	Policies       []ImportPolicyCandidate `json:"policies"`
-	OriginalTotal  int                     `json:"originalTotal"`
-	Excluded       int                     `json:"excluded"`
-	ExcludedRows   []ImportRowPreview      `json:"excludedRows"`
-	Token          string                  `json:"token"`
-	Sheet          string                  `json:"sheet"`
-	Columns        int                     `json:"columns"`
-	Total          int                     `json:"total"`
-	Valid          int                     `json:"valid"`
-	Ignored        int                     `json:"ignored"`
-	SecretsIgnored int                     `json:"secretsIgnored"`
-	BackupRows     int                     `json:"backupRows"`
-	Rows           []ImportRowPreview      `json:"rows"`
-}
-type ImportResult struct {
-	PoliciesCreated  int `json:"policiesCreated"`
-	PoliciesUpdated  int `json:"policiesUpdated"`
-	Excluded         int `json:"excluded"`
-	ServersCreated   int `json:"serversCreated"`
-	InstancesCreated int `json:"instancesCreated"`
-	DatabasesCreated int `json:"databasesCreated"`
-	ObjectsUpdated   int `json:"objectsUpdated"`
-	Skipped          int `json:"skipped"`
-}
 type importItem struct {
 	server, instance, database Object
 	number                     int
@@ -56,10 +21,6 @@ type importItem struct {
 type objectStamp struct {
 	ID      string
 	Version int64
-}
-type ImportRowEdit struct {
-	Row    int      `json:"row"`
-	Values []string `json:"values"`
 }
 type importPlan struct {
 	policyConfig *PolicyImportConfig
@@ -172,7 +133,7 @@ func objectsFromRow(row spreadsheet.Row) importItem {
 	}
 	return item
 }
-func validateImportItem(ctx context.Context, tx pgx.Tx, item *importItem) {
+func validateImportItem(choices choiceSet, item *importItem) {
 
 	for _, pair := range []struct{ name, value string }{{"Имя сервера", item.server.Name}, {"Экземпляр", item.instance.Name}, {"Тип СУБД", item.instance.DBMS}, {"SID", item.database.Name}} {
 		if pair.name == "Экземпляр" && item.isOracle() {
@@ -192,7 +153,7 @@ func validateImportItem(ctx context.Context, tx pgx.Tx, item *importItem) {
 		} else {
 			o.Attributes = a
 		}
-		if err := validateObjectChoices(ctx, tx, *o, Object{}); err != nil {
+		if err := choices.validateObject(*o, Object{}); err != nil {
 			item.errors = append(item.errors, err.Error())
 		}
 	}
@@ -238,24 +199,7 @@ func mergeObject(old, incoming Object) Object {
 	if out.Port == nil {
 		out.Port = old.Port
 	}
-	// Merge by JSON keys to keep this conservative policy consistent for new fields.
-	a, b := map[string]any{}, map[string]any{}
-	raw, _ := json.Marshal(old.Attributes)
-	_ = json.Unmarshal(raw, &a)
-	raw, _ = json.Marshal(out.Attributes)
-	_ = json.Unmarshal(raw, &b)
-	for key, value := range b {
-		if value == "" || value == nil {
-			b[key] = a[key]
-		} else if list, ok := value.([]any); ok && len(list) == 0 {
-			b[key] = a[key]
-		}
-	}
-	raw, _ = json.Marshal(b)
-	_ = json.Unmarshal(raw, &out.Attributes)
-	if out.Attributes.Administration == nil {
-		out.Attributes.Administration = []string{}
-	}
+	out.Attributes = mergeAttributes(old.Attributes, incoming.Attributes)
 	return out
 }
 func ensureUnchanged(idx objectIndex, versions map[string]objectStamp) error {
@@ -266,14 +210,14 @@ func ensureUnchanged(idx objectIndex, versions map[string]objectStamp) error {
 	}
 	return nil
 }
-func (s *Service) saveImportedObject(ctx context.Context, tx pgx.Tx, old, incoming Object, result *ImportResult) (Object, error) {
+func (w catalogWriter) saveImportedObject(ctx context.Context, old, incoming Object, result *ImportResult) (Object, error) {
 	if old.ID != "" {
 		incoming = mergeObject(old, incoming)
 		if sameObject(old, incoming) {
 			return old, nil
 		}
 	}
-	saved, err := s.saveObjectTx(ctx, tx, incoming)
+	saved, err := w.saveObject(ctx, incoming, writeNormal)
 	if err != nil {
 		return saved, fmt.Errorf("Не удалось сохранить объект импорта: %w", err)
 	}

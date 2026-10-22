@@ -271,6 +271,7 @@ export interface VersionPage {
   exists: boolean;
 }
 interface Backend {
+  GetWorkspace(): Promise<Workspace>;
   PreviewExcelPolicies(
     token: string,
     c: PolicyImportConfig,
@@ -529,4 +530,11 @@ export interface ImportPolicyCandidate {
   before: Policy | null;
   errors: string[];
   skipped: boolean;
+}
+
+export interface Workspace {
+  catalog: Catalog;
+  lookups: Lookups;
+  favorites: CatalogObject[];
+  policies: Policy[];
 }
