@@ -1,0 +1,32 @@
+//go:build windows
+
+package main
+
+import (
+	"context"
+	"embed"
+	"log"
+
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+)
+
+//go:embed all:frontend/dist
+var assets embed.FS
+
+func main() {
+	app, err := NewApp()
+	if err != nil {
+		log.Fatal("Не удалось открыть каталог настроек")
+	}
+	err = wails.Run(&options.App{
+		Title: "CatalogDB — Каталог БД", Width: 1280, Height: 820, MinWidth: 960, MinHeight: 640,
+		Frameless: true, BackgroundColour: &options.RGBA{R: 7, G: 19, B: 31, A: 255},
+		AssetServer: &assetserver.Options{Assets: assets},
+		OnShutdown:  func(context.Context) { app.service.Close() }, Bind: []interface{}{app},
+	})
+	if err != nil {
+		log.Fatal("Не удалось запустить CatalogDB")
+	}
+}

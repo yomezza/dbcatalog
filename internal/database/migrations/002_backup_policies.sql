@@ -1,0 +1,21 @@
+CREATE TABLE backup_policies (
+ id uuid PRIMARY KEY,
+ instance_id uuid REFERENCES instances(id) ON DELETE RESTRICT,
+ database_id uuid REFERENCES databases(id) ON DELETE RESTRICT,
+ name text NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 200),
+ enabled boolean NOT NULL DEFAULT false,
+ backup_type text NOT NULL DEFAULT 'Не указано',
+ scheduler text NOT NULL DEFAULT 'Не указано',
+ schedule text NOT NULL DEFAULT '',
+ storage text NOT NULL DEFAULT '',
+ retention_days integer NOT NULL DEFAULT 0 CHECK(retention_days >= 0),
+ description text NOT NULL DEFAULT '',
+ version bigint NOT NULL DEFAULT 1,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now(),
+ updated_by uuid NOT NULL REFERENCES users(id),
+ CHECK ((instance_id IS NULL) <> (database_id IS NULL)),
+ CHECK (NOT enabled OR (length(trim(schedule))>0 AND length(trim(storage))>0 AND retention_days>0 AND backup_type <> 'Не указано' AND scheduler <> 'Не указано')),
+ UNIQUE(instance_id),
+ UNIQUE(database_id)
+);

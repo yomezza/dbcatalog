@@ -1,10 +1,20 @@
-# Python-generated files
+# Local development and generated artifacts
+.venv/
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+*.py[cod]
+frontend/node_modules/
+frontend/dist/
+frontend/wailsjs/
+build/bin/
+*.exe
+*.test
+*.out
+.env
+connection.json
 
-# Virtual environments
-.venv
+packaging/vendor/
+frontend/test-results/
+frontend/playwright-report/
+
+# Wails dependency-install cache
+frontend/package.json.md5

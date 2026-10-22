@@ -1,0 +1,19 @@
+# Disposable development PostgreSQL. Never use these credentials in production.
+services:
+  postgres:
+    image: postgres:17@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+    environment:
+      POSTGRES_USER: catalogdb
+      POSTGRES_PASSWORD: catalogdb-test-only
+      POSTGRES_DB: catalogdb_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalogdb -d catalogdb_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - postgres_dev:/var/lib/postgresql/data
+volumes:
+  postgres_dev:

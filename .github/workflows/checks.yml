@@ -1,0 +1,47 @@
+name: CatalogDB checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: catalogdb
+          POSTGRES_PASSWORD: catalogdb-test-only
+          POSTGRES_DB: catalogdb_test
+        ports: ['55432:5432']
+        options: --health-cmd "pg_isready -U catalogdb -d catalogdb_test" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      CATALOGDB_TEST_DATABASE_URL: postgres://catalogdb:catalogdb-test-only@127.0.0.1:55432/catalogdb_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - run: go test -race ./...
+      - run: go vet ./...
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - run: npm --prefix frontend test
+      - run: npm --prefix frontend run build
+      - run: go test ./...
+      - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
+      - run: wails build -clean -platform windows/amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CatalogDB-windows-x64
+          path: build/bin/CatalogDB.exe

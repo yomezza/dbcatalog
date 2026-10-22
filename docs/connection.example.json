@@ -1,0 +1,9 @@
+{
+  "host": "localhost",
+  "port": 55432,
+  "database": "catalogdb_test",
+  "username": "catalogdb",
+  "schema": "dbcatalog",
+  "sslMode": "disable",
+  "sslRootCert": ""
+}
