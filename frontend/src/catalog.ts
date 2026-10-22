@@ -90,3 +90,66 @@ export function branchKeys(c: Catalog) {
     ),
   ];
 }
+
+export function filterCatalogCriteria(
+  c: Catalog,
+  query: string,
+  f: import("./api").CatalogCriteria,
+  policies: import("./api").Policy[],
+): Catalog {
+  const base = filterCatalog(c, query);
+  if (
+    !f.dbms &&
+    !f.status &&
+    !f.environment &&
+    !f.responsible &&
+    (!f.policy || f.policy === "any")
+  )
+    return base;
+  const instances = new Map(c.instances.map((i) => [i.id, i])),
+    direct = new Map(
+      policies.filter((p) => p.kind === "database").map((p) => [p.objectId, p]),
+    ),
+    inherited = new Map(
+      policies.filter((p) => p.kind === "instance").map((p) => [p.objectId, p]),
+    );
+  const databases = base.databases.filter((d) => {
+    const policy = direct.get(d.id) ?? inherited.get(d.parentId);
+    return (
+      (!f.dbms || (d.dbms || instances.get(d.parentId)?.dbms) === f.dbms) &&
+      (!f.status || d.status === f.status) &&
+      (!f.environment || d.environment === f.environment) &&
+      (!f.responsible ||
+        (f.responsible === "__empty__"
+          ? !d.attributes.responsible.trim()
+          : d.attributes.responsible === f.responsible)) &&
+      (!f.policy ||
+        f.policy === "any" ||
+        (f.policy === "present" && !!policy) ||
+        (f.policy === "missing" && !policy) ||
+        (f.policy === "active" && policy?.enabled) ||
+        (f.policy === "disabled" && policy?.enabled === false))
+    );
+  });
+  const parents = new Set(databases.map((d) => d.parentId));
+  const keptInstances = base.instances.filter((i) => parents.has(i.id));
+  const servers = new Set([
+    ...keptInstances.map((i) => i.parentId),
+    ...databases
+      .filter((d) => d.dbms === "Oracle Database")
+      .map((d) => d.parentId),
+  ]);
+  return {
+    databases,
+    instances: keptInstances,
+    servers: base.servers.filter((s) => servers.has(s.id)),
+  };
+}
+export const emptyCriteria = (): import("./api").CatalogCriteria => ({
+  query: "",
+  dbms: "",
+  status: "",
+  environment: "",
+  responsible: "",
+  policy: "",
+});

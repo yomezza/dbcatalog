@@ -41,7 +41,34 @@ jobs:
       - run: go test ./...
       - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
       - run: wails build -clean -platform windows/amd64
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build installers and check upgrade from 0.6.0
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force packaging/vendor | Out-Null
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile packaging/vendor/MicrosoftEdgeWebView2Setup.exe
+          $signature = Get-AuthenticodeSignature packaging/vendor/MicrosoftEdgeWebView2Setup.exe
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'Invalid WebView2 installer signature' }
+          $iscc = (Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe" | Select-Object -First 1).FullName
+          if (!$iscc) { throw 'Inno Setup not found' }
+          Expand-Archive downloads/CatalogDB-windows-x64-0.6.0.zip -DestinationPath build/legacy
+          $legacy = (Get-ChildItem build/legacy -Filter CatalogDB.exe -Recurse | Select-Object -First 1).FullName
+          if (!$legacy) { throw 'Previous release EXE missing' }
+          & $iscc '/DAppVersion=0.6.0' "/DAppExe=$legacy" packaging/inno_setup/catalogdb.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Old installer failed' }
+          & $iscc packaging/inno_setup/catalogdb.iss
+          if ($LASTEXITCODE -ne 0) { throw 'New installer failed' }
+          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.6.0.exe -NewInstaller build/bin/CatalogDB_Setup_0.7.0.exe -ExpectedExe build/bin/CatalogDB.exe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CatalogDB-windows-smoke-report
+          path: build/windows-smoke
       - uses: actions/upload-artifact@v4
         with:
           name: CatalogDB-windows-x64
-          path: build/bin/CatalogDB.exe
+          path: |
+            build/bin/CatalogDB.exe
+            build/bin/CatalogDB_Setup_0.7.0.exe

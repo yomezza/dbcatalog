@@ -157,6 +157,9 @@ func (s *Service) saveObjectTx(ctx context.Context, tx pgx.Tx, o Object) (Object
 	return s.saveObjectTxAction(ctx, tx, o, false)
 }
 func (s *Service) saveObjectTxAction(ctx context.Context, tx pgx.Tx, o Object, restore bool) (Object, error) {
+	return s.saveObjectMode(ctx, tx, o, restore, false)
+}
+func (s *Service) saveObjectMode(ctx context.Context, tx pgx.Tx, o Object, restore, recreate bool) (Object, error) {
 	t, err := table(o.Kind)
 	if err != nil {
 		return o, err
@@ -194,7 +197,8 @@ func (s *Service) saveObjectTxAction(ctx context.Context, tx pgx.Tx, o Object, r
 	var before any
 	var previous Object
 	action := "create"
-	if o.ID != "" {
+	creating := o.ID == "" || recreate
+	if o.ID != "" && !recreate {
 		action = "update"
 		var raw []byte
 		if err = tx.QueryRow(ctx, "SELECT to_jsonb(t) FROM "+t+" t WHERE id=$1 FOR UPDATE", o.ID).Scan(&raw); err != nil {
@@ -209,7 +213,7 @@ func (s *Service) saveObjectTxAction(ctx context.Context, tx pgx.Tx, o Object, r
 		}
 		before = old
 		previous = old
-	} else {
+	} else if !recreate {
 		o.ID = security.ID()
 		o.Version = 0
 	}
@@ -227,14 +231,14 @@ func (s *Service) saveObjectTxAction(ctx context.Context, tx pgx.Tx, o Object, r
 	switch o.Kind {
 	case "server":
 		args = []any{o.ID, o.Name, o.Address, o.OS, o.Environment, o.Status, o.Description, s.user.ID}
-		if action == "create" {
+		if creating {
 			sql = `INSERT INTO servers(id,name,address,os,environment,status,description,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`
 		} else {
 			sql = `UPDATE servers SET name=$2,address=$3,os=$4,environment=$5,status=$6,description=$7,updated_by=$8,version=version+1,updated_at=now() WHERE id=$1`
 		}
 	case "instance":
 		args = []any{o.ID, o.ParentID, o.Name, o.DBMS, o.DBMSVersion, o.Port, o.Status, o.Description, s.user.ID}
-		if action == "create" {
+		if creating {
 			sql = `INSERT INTO instances(id,server_id,name,dbms,dbms_version,port,status,description,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`
 		} else {
 			sql = `UPDATE instances SET server_id=$2,name=$3,dbms=$4,dbms_version=$5,port=$6,status=$7,description=$8,updated_by=$9,version=version+1,updated_at=now() WHERE id=$1`
@@ -247,7 +251,7 @@ func (s *Service) saveObjectTxAction(ctx context.Context, tx pgx.Tx, o Object, r
 			instanceID = o.ParentID
 		}
 		args = []any{o.ID, instanceID, o.Name, o.Purpose, o.Status, o.Description, s.user.ID, serverID, o.DBMS, o.DBMSVersion, o.Port}
-		if action == "create" {
+		if creating {
 			sql = `INSERT INTO databases(id,instance_id,name,purpose,status,description,updated_by,server_id,dbms,dbms_version,port) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
 		} else {
 			sql = `UPDATE databases SET instance_id=$2,name=$3,purpose=$4,status=$5,description=$6,updated_by=$7,server_id=$8,dbms=$9,dbms_version=$10,port=$11,version=version+1,updated_at=now() WHERE id=$1`
@@ -261,7 +265,7 @@ func (s *Service) saveObjectTxAction(ctx context.Context, tx pgx.Tx, o Object, r
 	if err != nil {
 		return o, err
 	}
-	if _, err = tx.Exec(ctx, "UPDATE "+t+" SET attributes=$2,environment=$3 WHERE id=$1", o.ID, attributes, o.Environment); err != nil {
+	if _, err = tx.Exec(ctx, "UPDATE "+t+" SET attributes=$2,environment=$3,version=$4 WHERE id=$1", o.ID, attributes, o.Environment, o.Version+1); err != nil {
 		return o, errors.New(database.PublicError(err))
 	}
 	o.Version++

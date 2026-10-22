@@ -1,4 +1,9 @@
-#define AppVersion "0.6.0"
+#ifndef AppVersion
+#define AppVersion "0.7.0"
+#endif
+#ifndef AppExe
+#define AppExe "..\..\build\bin\CatalogDB.exe"
+#endif
 [Setup]
 AppId={{77CC22CF-5766-4A80-A049-853E7A9B22E0}
 AppName=CatalogDB
@@ -24,7 +29,7 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Ярлыки:"
 
 [Files]
-Source: "..\..\build\bin\CatalogDB.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 
 Source: "..\vendor\MicrosoftEdgeWebView2Setup.exe"; DestDir: "{tmp}"; Flags: dontcopy
 

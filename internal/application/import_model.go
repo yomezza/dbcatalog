@@ -23,20 +23,24 @@ type ImportRowPreview struct {
 	Values   []string `json:"values"`
 }
 type ImportPreview struct {
-	OriginalTotal  int                `json:"originalTotal"`
-	Excluded       int                `json:"excluded"`
-	ExcludedRows   []ImportRowPreview `json:"excludedRows"`
-	Token          string             `json:"token"`
-	Sheet          string             `json:"sheet"`
-	Columns        int                `json:"columns"`
-	Total          int                `json:"total"`
-	Valid          int                `json:"valid"`
-	Ignored        int                `json:"ignored"`
-	SecretsIgnored int                `json:"secretsIgnored"`
-	BackupRows     int                `json:"backupRows"`
-	Rows           []ImportRowPreview `json:"rows"`
+	WithPolicies   bool                    `json:"withPolicies"`
+	Policies       []ImportPolicyCandidate `json:"policies"`
+	OriginalTotal  int                     `json:"originalTotal"`
+	Excluded       int                     `json:"excluded"`
+	ExcludedRows   []ImportRowPreview      `json:"excludedRows"`
+	Token          string                  `json:"token"`
+	Sheet          string                  `json:"sheet"`
+	Columns        int                     `json:"columns"`
+	Total          int                     `json:"total"`
+	Valid          int                     `json:"valid"`
+	Ignored        int                     `json:"ignored"`
+	SecretsIgnored int                     `json:"secretsIgnored"`
+	BackupRows     int                     `json:"backupRows"`
+	Rows           []ImportRowPreview      `json:"rows"`
 }
 type ImportResult struct {
+	PoliciesCreated  int `json:"policiesCreated"`
+	PoliciesUpdated  int `json:"policiesUpdated"`
 	Excluded         int `json:"excluded"`
 	ServersCreated   int `json:"serversCreated"`
 	InstancesCreated int `json:"instancesCreated"`
@@ -58,13 +62,16 @@ type ImportRowEdit struct {
 	Values []string `json:"values"`
 }
 type importPlan struct {
-	excluded map[int]bool
-	workbook spreadsheet.Workbook
-	preview  ImportPreview
-	items    []importItem
-	versions map[string]objectStamp
-	expires  time.Time
-	userID   string
+	policyConfig *PolicyImportConfig
+	policyStamp  string
+	policies     []plannedImportPolicy
+	excluded     map[int]bool
+	workbook     spreadsheet.Workbook
+	preview      ImportPreview
+	items        []importItem
+	versions     map[string]objectStamp
+	expires      time.Time
+	userID       string
 }
 type objectIndex struct {
 	servers, instances, databases map[string]Object

@@ -45,6 +45,15 @@ func (s *Service) ResolveDownload(id string) (downloads.Entry, string, error) {
 	return store.Resolve(id)
 }
 func (s *Service) ExportToDownloads() (downloads.Entry, error) {
+	return s.exportSelectionToDownloads(nil)
+}
+func (s *Service) ExportSelection(ids []string) (downloads.Entry, error) {
+	if len(ids) == 0 {
+		return downloads.Entry{}, errors.New("Выберите базы для экспорта")
+	}
+	return s.exportSelectionToDownloads(ids)
+}
+func (s *Service) exportSelectionToDownloads(ids []string) (downloads.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -53,7 +62,7 @@ func (s *Service) ExportToDownloads() (downloads.Entry, error) {
 	if err != nil {
 		return downloads.Entry{}, err
 	}
-	encoded, err := s.exportExcelLocked()
+	encoded, err := s.exportSelectionLocked(ids)
 	if err != nil {
 		return downloads.Entry{}, err
 	}

@@ -1383,3 +1383,69 @@ aside {
 html {
   scrollbar-gutter: stable;
 }
+
+.workflow-filters {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #dce5ed;
+  border-radius: 12px;
+  background: #fff;
+}
+.workflow-filters summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.workflow-filters .actions {
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.selection-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 16px 0;
+}
+.tree-check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: #168393;
+}
+.wide-modal {
+  width: min(1000px, 94vw);
+}
+.wide-modal fieldset {
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.wide-modal .choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.policy-import {
+  margin: 18px 0;
+  padding: 18px;
+  background: #f3f8fa;
+  border: 1px solid #dce5ed;
+  border-radius: 12px;
+}
+.policy-import fieldset {
+  border: 0;
+  padding: 0;
+}
+.table-scroll {
+  overflow: auto;
+  max-height: 52vh;
+  margin: 12px 0;
+}
+.table-scroll td small {
+  display: block;
+  overflow-wrap: anywhere;
+  max-width: 450px;
+}

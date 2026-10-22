@@ -11,7 +11,9 @@ export type View =
   | "audit"
   | "downloads"
   | "notifications"
-  | "statistics";
+  | "statistics"
+  | "quality"
+  | "deleted";
 const sections: { view: View; label: string; admin?: boolean }[] = [
   { view: "catalog", label: "▦ Общий каталог" },
   { view: "policies", label: "◷ Политики РК" },
@@ -19,6 +21,8 @@ const sections: { view: View; label: string; admin?: boolean }[] = [
   { view: "favorites", label: "★ Избранное" },
   { view: "downloads", label: "↓ Загрузки" },
   { view: "notifications", label: "♧ Уведомления" },
+  { view: "quality", label: "◇ Качество данных" },
+  { view: "deleted", label: "♲ Удалённые", admin: true },
   { view: "statistics", label: "▥ Статистика" },
   { view: "users", label: "♙ Пользователи", admin: true },
   { view: "audit", label: "≡ Журнал аудита", admin: true },

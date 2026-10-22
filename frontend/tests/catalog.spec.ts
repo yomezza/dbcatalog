@@ -66,6 +66,7 @@ async function login(page: Page, role = "admin", expand = true) {
             GetCatalog: async () => catalog,
             ListFavorites: async () => favorites,
             ListPolicies: async () => [],
+            ListFilterPresets: async () => [],
             GetLookups: async () => ({
               status: ["Эксплуатируется", "Архив"],
               environment: ["Тестовый", "Промышленный"],
@@ -1348,4 +1349,379 @@ test("policy history is paginated in a separate window and has administrator ver
   await expect(
     dialog.getByText("Событий: 26 · Страница 2 из 2", { exact: true }),
   ).toBeVisible();
+});
+
+test("bulk edit requires a fresh preview after every field change and displays server errors in the dialog", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const backend = window.go!.main.App;
+    Object.assign(backend, {
+      PreviewBulkEdit: async (
+        refs: { id: string; version: number }[],
+        patch: { responsible: string },
+      ) => {
+        if (refs.length !== 1 || refs[0].id !== "d1" || refs[0].version !== 1)
+          throw new Error("Неверный выбор");
+        const before = (await backend.GetCatalog()).databases[0];
+        return {
+          fingerprint: "confirmed",
+          selected: 1,
+          changed: 1,
+          items: [
+            {
+              before,
+              after: {
+                ...before,
+                attributes: {
+                  ...before.attributes,
+                  responsible: patch.responsible,
+                },
+              },
+            },
+          ],
+        };
+      },
+      ApplyBulkEdit: async () => {
+        throw new Error("Выбранная БД изменена другим пользователем");
+      },
+    });
+  });
+  await page
+    .getByRole("checkbox", { name: "Выбрать БД payroll", exact: true })
+    .check();
+  await page
+    .getByRole("button", { name: "Массовое редактирование", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Массовое редактирование: 1 БД",
+  });
+  await dialog
+    .getByRole("checkbox", { name: "Ответственный", exact: true })
+    .check();
+  await dialog.getByLabel("Новый ответственный", { exact: true }).fill("Новый");
+  await expect(
+    dialog.getByRole("button", { name: "Подтвердить изменения", exact: true }),
+  ).toHaveCount(0);
+  await dialog
+    .getByRole("button", { name: "Предпросмотр изменений", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("cell", { name: "Новый", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByLabel("Новый ответственный", { exact: true })
+    .fill("Другой");
+  await expect(
+    dialog.getByRole("button", { name: "Подтвердить изменения", exact: true }),
+  ).toHaveCount(0);
+  await dialog
+    .getByRole("button", { name: "Предпросмотр изменений", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Подтвердить изменения", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "Выбранная БД изменена другим пользователем",
+  );
+});
+
+test("catalog filters save personal presets and export the filtered result as a viewer", async ({
+  page,
+}) => {
+  await login(page, "viewer");
+  await page.evaluate(() => {
+    let presets: unknown[] = [];
+    Object.assign(window.go!.main.App, {
+      SaveFilterPreset: async (f: unknown) => {
+        presets = [f];
+        return f;
+      },
+      ListFilterPresets: async () => presets,
+      ExportSelection: async (ids: string[]) => {
+        if (ids.join() !== "d1") throw new Error("Выбраны лишние БД");
+        return { id: "file", name: "result.xlsx" };
+      },
+      SaveDownloadAs: async () => {},
+    });
+  });
+  await page.getByText("Фильтры баз данных", { exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Тип эксплуатации", exact: true })
+    .selectOption("Тестовый");
+  await expect(page.locator(".tree-node")).toHaveCount(0);
+  await page
+    .getByRole("combobox", { name: "Тип эксплуатации", exact: true })
+    .selectOption("Промышленный");
+  await page
+    .getByRole("combobox", {
+      name: "Политика РК (с учётом наследования)",
+      exact: true,
+    })
+    .selectOption("missing");
+  await page.getByLabel("Название набора фильтров").fill("Без РК");
+  await page
+    .getByRole("button", { name: "Сохранить набор", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Без РК", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Сбросить фильтры и поиск", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Без РК", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", {
+      name: "Политика РК (с учётом наследования)",
+      exact: true,
+    }),
+  ).toHaveValue("missing");
+  await page
+    .getByRole("button", { name: "Экспорт результата", exact: true })
+    .click();
+  await expect(
+    page.getByText("Результат сохранён в Загрузки", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Массовое редактирование", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("quality report opens the affected record and deleted branch conflicts prevent restoration", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const object = {
+      id: "s1",
+      kind: "server",
+      name: "host-a",
+      batchId: "b",
+      deletedAt: "2026-10-22T10:00:00Z",
+      actor: "admin",
+      snapshot: {},
+    };
+    Object.assign(window.go!.main.App, {
+      GetQualityReport: async () => ({
+        page: 0,
+        total: 1,
+        counts: { missing_address: 1 },
+        items: [
+          {
+            code: "missing_address",
+            severity: "warning",
+            kind: "server",
+            id: "s1",
+            name: "host-a",
+            path: "host-a",
+            detail: "Не указан сетевой адрес сервера",
+          },
+        ],
+      }),
+      ListDeleted: async () => ({ page: 0, total: 1, items: [object] }),
+      PreviewDeletedRestore: async () => ({
+        fingerprint: "preview",
+        items: [object],
+        conflicts: ["Имя сервера уже занято"],
+      }),
+      RestoreDeleted: async () => {
+        throw new Error("Восстановление не должно вызываться");
+      },
+    });
+  });
+  await page
+    .getByRole("button", { name: "◇ Качество данных", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Открыть карточку", exact: true })
+    .click();
+  await expect(page.locator(".object-card")).toContainText("host-a");
+  await page.getByRole("button", { name: "♲ Удалённые", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Восстановить…", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Восстановление: host-a",
+    exact: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Проверить восстановление", exact: true })
+    .click();
+  await expect(dialog).toContainText("Имя сервера уже занято");
+  await expect(
+    dialog.getByRole("button", {
+      name: "Подтвердить восстановление",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await dialog
+    .getByRole("checkbox", {
+      name: "Восстановить всю удалённую ветвь",
+      exact: true,
+    })
+    .uncheck();
+  await expect(
+    dialog.getByRole("button", {
+      name: "Подтвердить восстановление",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+});
+
+test("policy import requires explicit missing parameters and a separate confirmation that resets on edits", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    let revision = 0;
+    const policy = {
+      id: "",
+      version: 0,
+      kind: "database",
+      objectId: "pending",
+      name: "РК",
+      enabled: true,
+      backupType: "Локальное",
+      scheduler: "cron",
+      schedule: "Ежедневно 02:00",
+      storage: "/backup",
+      retentionDays: 7,
+      description: "",
+    };
+    const preview = (withPolicies = false) => ({
+      token: "token-" + revision,
+      sheet: "Каталог",
+      columns: 28,
+      originalTotal: 1,
+      total: 1,
+      valid: 1,
+      excluded: 0,
+      excludedRows: [],
+      ignored: 0,
+      secretsIgnored: 0,
+      backupRows: 1,
+      withPolicies,
+      policies: withPolicies
+        ? [
+            {
+              row: 2,
+              target: "host-a / pg-main / payroll",
+              action: "создать",
+              policy,
+              before: null,
+              errors: [],
+              skipped: false,
+            },
+          ]
+        : [],
+      rows: [
+        {
+          row: 2,
+          server: "host-a",
+          instance: "pg-main",
+          database: "payroll",
+          values: Array(21).fill(""),
+          errors: [],
+        },
+      ],
+    });
+    Object.assign(window.go!.main.App, {
+      PreviewExcel: async () => preview(),
+      PreviewExcelPolicies: async (
+        token: string,
+        c: {
+          enabled: boolean;
+          targetKind: string;
+          retentionUnit: string;
+          defaults: { schedule: string };
+        },
+      ) => {
+        if (token !== "token-" + revision) throw new Error("Старый токен");
+        if (
+          c.enabled &&
+          (c.targetKind !== "database" ||
+            c.retentionUnit !== "days" ||
+            !c.defaults.schedule)
+        )
+          throw new Error("Не указаны параметры");
+        revision++;
+        return preview(c.enabled);
+      },
+      ApplyExcel: async (
+        token: string,
+        skipInvalid: boolean,
+        catalogOnly: boolean,
+      ) => {
+        if (catalogOnly || token !== "token-" + revision)
+          throw new Error("Неверное подтверждение");
+        return {
+          serversCreated: 1,
+          instancesCreated: 1,
+          databasesCreated: 1,
+          objectsUpdated: 0,
+          policiesCreated: 1,
+          policiesUpdated: 0,
+          skipped: 0,
+          excluded: 0,
+        };
+      },
+    });
+  });
+  await page
+    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .click();
+  await page
+    .getByLabel("Файл каталога (до 20 МБ)")
+    .setInputFiles({
+      name: "policies.xlsx",
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from("mock"),
+    });
+  await page
+    .getByRole("checkbox", {
+      name: "Переносить политики РК вместе с каталогом",
+      exact: true,
+    })
+    .check();
+  await page
+    .getByLabel("Уровень назначения", { exact: true })
+    .selectOption("database");
+  await page
+    .getByLabel("Единицы числового срока из Excel", { exact: true })
+    .selectOption("days");
+  await page
+    .getByLabel("Расписание, если отсутствует", { exact: true })
+    .fill("Ежедневно 02:00");
+  const confirm = page.getByRole("button", {
+    name: "Подтвердить импорт 1 строк",
+    exact: true,
+  });
+  await expect(confirm).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Проверить назначения политик", exact: true })
+    .click();
+  await expect(confirm).toBeDisabled();
+  await page
+    .getByRole("checkbox", {
+      name: "Подтверждаю назначения и замену существующих политик из предпросмотра",
+      exact: true,
+    })
+    .check();
+  await expect(confirm).toBeEnabled();
+  await page
+    .getByLabel("Расписание, если отсутствует", { exact: true })
+    .fill("Ежедневно 03:00");
+  await expect(confirm).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Проверить назначения политик", exact: true })
+    .click();
+  await page
+    .getByRole("checkbox", {
+      name: "Подтверждаю назначения и замену существующих политик из предпросмотра",
+      exact: true,
+    })
+    .check();
+  await confirm.click();
+  await expect(page.getByRole("status")).toContainText("Политик создано: 1");
 });

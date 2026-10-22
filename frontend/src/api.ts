@@ -86,6 +86,8 @@ export interface ImportRowPreview {
   values: string[];
 }
 export interface ImportPreview {
+  withPolicies: boolean;
+  policies: ImportPolicyCandidate[];
   originalTotal: number;
   excluded: number;
   excludedRows: ImportRowPreview[];
@@ -100,6 +102,8 @@ export interface ImportPreview {
   rows: ImportRowPreview[];
 }
 export interface ImportResult {
+  policiesCreated: number;
+  policiesUpdated: number;
   excluded: number;
   serversCreated: number;
   instancesCreated: number;
@@ -267,6 +271,34 @@ export interface VersionPage {
   exists: boolean;
 }
 interface Backend {
+  PreviewExcelPolicies(
+    token: string,
+    c: PolicyImportConfig,
+  ): Promise<ImportPreview>;
+  ListFilterPresets(): Promise<FilterPreset[]>;
+  SaveFilterPreset(f: FilterPreset): Promise<FilterPreset>;
+  DeleteFilterPreset(id: string, version: number): Promise<void>;
+  PreviewBulkEdit(refs: ObjectRef[], patch: BulkPatch): Promise<BulkPreview>;
+  ApplyBulkEdit(
+    refs: ObjectRef[],
+    patch: BulkPatch,
+    fingerprint: string,
+  ): Promise<number>;
+  GetQualityReport(code: string, page: number): Promise<QualityPage>;
+  ListDeleted(page: number): Promise<DeletedPage>;
+  PreviewDeletedRestore(
+    kind: string,
+    id: string,
+    branch: boolean,
+  ): Promise<RestorePreview>;
+  RestoreDeleted(
+    kind: string,
+    id: string,
+    branch: boolean,
+    fingerprint: string,
+  ): Promise<number>;
+  ExportSelection(ids: string[]): Promise<DownloadEntry>;
+
   SetImportRowsExcluded(
     token: string,
     rows: number[],
@@ -406,4 +438,95 @@ export function newObject(kind: Kind, parentId = ""): CatalogObject {
     purpose: "",
     version: 0,
   };
+}
+
+export interface CatalogCriteria {
+  query: string;
+  dbms: string;
+  status: string;
+  environment: string;
+  responsible: string;
+  policy: string;
+}
+export interface FilterPreset {
+  id: string;
+  name: string;
+  version: number;
+  criteria: CatalogCriteria;
+}
+export interface ObjectRef {
+  id: string;
+  version: number;
+}
+export interface BulkPatch {
+  setResponsible: boolean;
+  responsible: string;
+  setOrganization: boolean;
+  organization: string;
+  setStatus: boolean;
+  status: string;
+  setAdministration: boolean;
+  administration: string[];
+}
+export interface BulkPreview {
+  fingerprint: string;
+  selected: number;
+  changed: number;
+  items: { before: CatalogObject; after: CatalogObject }[];
+}
+export interface QualityIssue {
+  code: string;
+  severity: string;
+  kind: Kind;
+  id: string;
+  name: string;
+  path: string;
+  detail: string;
+}
+export interface QualityPage {
+  items: QualityIssue[];
+  counts: Record<string, number>;
+  total: number;
+  page: number;
+}
+export interface DeletedRecord {
+  kind: Kind | "policy";
+  id: string;
+  batchId: string;
+  name: string;
+  deletedAt: string;
+  actor: string;
+  snapshot: CatalogObject | Policy;
+}
+export interface DeletedPage {
+  items: DeletedRecord[];
+  total: number;
+  page: number;
+}
+export interface RestorePreview {
+  items: DeletedRecord[];
+  conflicts: string[];
+  fingerprint: string;
+}
+export interface PolicyImportOverride {
+  row: number;
+  skip: boolean;
+  policy: Policy;
+}
+export interface PolicyImportConfig {
+  enabled: boolean;
+  targetKind: string;
+  defaultState: string;
+  retentionUnit: string;
+  defaults: Policy;
+  overrides: PolicyImportOverride[];
+}
+export interface ImportPolicyCandidate {
+  row: number;
+  target: string;
+  action: string;
+  policy: Policy;
+  before: Policy | null;
+  errors: string[];
+  skipped: boolean;
 }

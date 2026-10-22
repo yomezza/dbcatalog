@@ -159,6 +159,11 @@ func (s *Service) RevalidateExcel(token string, edits []ImportRowEdit) (ImportPr
 	if err != nil {
 		return ImportPreview{}, err
 	}
+	if old.policyConfig != nil {
+		if err = s.attachImportPolicies(ctx, tx, next, *old.policyConfig); err != nil {
+			return ImportPreview{}, err
+		}
+	}
 	s.pendingImport = next
 	return next.preview, nil
 }
@@ -171,7 +176,10 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 		return result, errors.New("Предпросмотр устарел. Повторно выберите файл")
 	}
 	result.Excluded = plan.preview.Excluded
-	if plan.preview.Columns == 28 && !catalogOnly {
+	if plan.preview.WithPolicies && catalogOnly {
+		return result, errors.New("Предпросмотр содержит политики: подтвердите их импорт или отключите перенос политик и повторите проверку")
+	}
+	if plan.preview.Columns == 28 && !catalogOnly && !plan.preview.WithPolicies {
 		return result, errors.New("Подтвердите импорт только каталога: политики РК и пароли архива из этого файла не переносятся")
 	}
 	if plan.preview.Valid == 0 {
@@ -191,7 +199,7 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 	if err = s.authorize(ctx, tx, true, false); err != nil {
 		return result, err
 	}
-	if _, err = tx.Exec(ctx, `LOCK TABLE servers,instances,databases IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+	if _, err = tx.Exec(ctx, `LOCK TABLE servers,instances,databases,backup_policies IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		return result, importDatabaseError(err)
 	}
 	idx, err := loadIndex(ctx, tx)
@@ -201,6 +209,16 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 	if err = ensureUnchanged(idx, plan.versions); err != nil {
 		return result, err
 	}
+	if plan.policyConfig != nil {
+		stamp, e := importPolicyStamp(ctx, tx)
+		if e != nil {
+			return result, e
+		}
+		if stamp != plan.policyStamp {
+			return result, errors.New("Политики РК изменились. Повторите предпросмотр")
+		}
+	}
+	importedRows := map[int]bool{}
 	for _, item := range plan.items {
 		if len(item.errors) > 0 {
 			result.Skipped++
@@ -228,6 +246,32 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			return ImportResult{}, err
 		}
 		idx.databases[dk] = db
+		importedRows[item.number] = true
+	}
+	for _, planned := range plan.policies {
+		applicable := false
+		for _, row := range planned.rows {
+			if importedRows[row] {
+				applicable = true
+			}
+		}
+		if !applicable {
+			continue
+		}
+		p := planned.policy
+		target := idx.get(planned.key)
+		p.ObjectID = target.ID
+		if p.ObjectID == "" {
+			return ImportResult{}, errors.New("Объект назначения политики не найден")
+		}
+		if _, err = s.savePolicyTx(ctx, tx, p, false); err != nil {
+			return ImportResult{}, err
+		}
+		if p.ID == "" {
+			result.PoliciesCreated++
+		} else {
+			result.PoliciesUpdated++
+		}
 	}
 	if err = event(ctx, tx, s.user.ID, "excel_import", "import", security.ID()); err != nil {
 		return ImportResult{}, importDatabaseError(err)

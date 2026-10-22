@@ -11,7 +11,7 @@ export const actionLabels: Record<string, string> = {
   create: "Создание",
   update: "Изменение",
   delete: "Удаление",
-  restore: "Возврат к версии",
+  restore: "Восстановление",
   baseline: "Исходное состояние",
 };
 const policyLabels: Record<string, string> = {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/yomezza/test/internal/application"
 	"github.com/yomezza/test/internal/config"
+	"github.com/yomezza/test/internal/downloads"
 	"os"
 	"slices"
 )
@@ -115,4 +116,39 @@ func (a *App) RestoreVersion(kind, id string, currentVersion, targetVersion int6
 }
 func (a *App) GetHistoryPage(kind, id string, page int) (application.HistoryPage, error) {
 	return a.service.GetHistoryPage(kind, id, page)
+}
+
+func (a *App) ListFilterPresets() ([]application.FilterPreset, error) {
+	return a.service.ListFilterPresets()
+}
+func (a *App) SaveFilterPreset(f application.FilterPreset) (application.FilterPreset, error) {
+	return a.service.SaveFilterPreset(f)
+}
+func (a *App) DeleteFilterPreset(id string, version int64) error {
+	return a.service.DeleteFilterPreset(id, version)
+}
+func (a *App) PreviewBulkEdit(refs []application.ObjectRef, p application.BulkPatch) (application.BulkPreview, error) {
+	return a.service.PreviewBulkEdit(refs, p)
+}
+func (a *App) ApplyBulkEdit(refs []application.ObjectRef, p application.BulkPatch, fingerprint string) (int, error) {
+	return a.service.ApplyBulkEdit(refs, p, fingerprint)
+}
+func (a *App) GetQualityReport(code string, page int) (application.QualityPage, error) {
+	return a.service.GetQualityReport(code, page)
+}
+func (a *App) ListDeleted(page int) (application.DeletedPage, error) {
+	return a.service.ListDeleted(page)
+}
+func (a *App) PreviewDeletedRestore(kind, id string, branch bool) (application.RestorePreview, error) {
+	return a.service.PreviewDeletedRestore(kind, id, branch)
+}
+func (a *App) RestoreDeleted(kind, id string, branch bool, fingerprint string) (int, error) {
+	return a.service.RestoreDeleted(kind, id, branch, fingerprint)
+}
+func (a *App) ExportSelection(ids []string) (downloads.Entry, error) {
+	return a.service.ExportSelection(ids)
+}
+
+func (a *App) PreviewExcelPolicies(token string, c application.PolicyImportConfig) (application.ImportPreview, error) {
+	return a.service.PreviewExcelPolicies(token, c)
 }

@@ -65,7 +65,7 @@ func TestMigrationIsolationRepeatabilityConcurrency(t *testing.T) {
 	}
 	for _, schema := range []string{a, b} {
 		var count int
-		if err := p.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{schema, "schema_migrations"}.Sanitize()).Scan(&count); err != nil || count != 7 {
+		if err := p.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{schema, "schema_migrations"}.Sanitize()).Scan(&count); err != nil || count != 8 {
 			t.Fatalf("ledger count %d: %v", count, err)
 		}
 	}
@@ -192,5 +192,63 @@ func TestCurrentSchemaNeedsNoDDLRights(t *testing.T) {
 	}
 	if err = Migrate(ctx, limited, schema+"_new"); err == nil {
 		t.Fatal("role without CREATE created schema")
+	}
+}
+
+func TestWorkflowUpgradeBackfillsOnlyAbsentDeletedObjects(t *testing.T) {
+	ctx, p := testPool(t)
+	schema := testSchema(t, ctx, p)
+	prior := fstest.MapFS{}
+	entries, err := migrationFiles.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "008_") {
+			continue
+		}
+		name := "migrations/" + entry.Name()
+		data, e := migrationFiles.ReadFile(name)
+		if e != nil {
+			t.Fatal(e)
+		}
+		prior[name] = &fstest.MapFile{Data: data}
+	}
+	if err = migrateFS(ctx, p, schema, prior); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := p.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SET LOCAL search_path TO "+pgx.Identifier{schema}.Sanitize()+",pg_catalog"); err != nil {
+		t.Fatal(err)
+	}
+	actor, deleted, active, retired, policy := security.ID(), security.ID(), security.ID(), security.ID(), security.ID()
+	if _, err = tx.Exec(ctx, `INSERT INTO users(id,login,password_hash,role,state)VALUES($1,'admin','hash','admin','active')`, actor); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO servers(id,name,updated_by)VALUES($1,'active',$2)`, active, actor); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range []struct{ kind, id, snapshot string }{{"server", deleted, `{"name":"deleted","kind":"server","version":1}`}, {"server", active, `{"name":"active","kind":"server","version":1}`}, {"instance", retired, `{"name":"old-oracle","kind":"instance","dbms":"Oracle Database","version":1}`}, {"policy", policy, `{"name":"old-oracle-policy","kind":"instance","objectId":"` + retired + `","version":1}`}} {
+		if _, err = tx.Exec(ctx, `INSERT INTO object_history(entity,object_id,action,actor_id,before_state)VALUES($1,$2,'delete',$3,$4::jsonb)`, r.kind, r.id, actor, r.snapshot); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err = Migrate(ctx, p, schema); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err = p.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{schema, "deleted_objects"}.Sanitize()).Scan(&count); err != nil || count != 1 {
+		t.Fatal("migration backfill mismatch", count, err)
+	}
+	var id string
+	if err = p.QueryRow(ctx, "SELECT object_id::text FROM "+pgx.Identifier{schema, "deleted_objects"}.Sanitize()).Scan(&id); err != nil || id != deleted {
+		t.Fatal(id, err)
 	}
 }

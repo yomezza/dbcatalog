@@ -1,3 +1,11 @@
+import {
+  CatalogFilters,
+  BulkDialog,
+  QualityPanel,
+  DeletedPanel,
+} from "./CatalogWorkflows";
+import { filterCatalogCriteria, emptyCriteria } from "./catalog";
+import type { ObjectRef } from "./api";
 import { HistoryDialog } from "./HistoryDialog";
 import { VersionsDialog } from "./VersionsDialog";
 import type { RecordTarget } from "./api";
@@ -73,6 +81,9 @@ function App() {
       target: CatalogObject | null;
       preview: DeletionPreview;
     } | null>(null);
+  const [criteria, setCriteria] = useState(emptyCriteria);
+  const [checked, setChecked] = useState<Map<string, ObjectRef>>(new Map());
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set()),
     [unread, setUnread] = useState(0);
   function toggleBranch(id: string) {
@@ -272,6 +283,7 @@ function App() {
     setLookups(refs);
     setFavorites(favs);
     setCatalog(result);
+    setChecked(new Map());
     return result;
   }
   function updateConnection<K extends keyof Connection>(
@@ -284,7 +296,7 @@ function App() {
   }
   const canEdit =
     status.user?.role === "admin" || status.user?.role === "editor";
-  const filtered = filterCatalog(catalog, query);
+  const filtered = filterCatalogCriteria(catalog, query, criteria, policies);
   const matches = filtered.servers;
   const lastPage = Math.max(0, Math.ceil(matches.length / 10) - 1);
   const currentPage = Math.min(page, lastPage);
@@ -294,36 +306,54 @@ function App() {
   }
   function node(o: CatalogObject) {
     return (
-      <button
-        className={"tree-node " + (selected?.id === o.id ? "selected" : "")}
-        onClick={() => choose(o)}
-        onDoubleClick={() => {
-          if (o.kind !== "database") toggleBranch(o.id);
-        }}
-        onContextMenu={(e) => openContext(e, o)}
-        onKeyDown={(e) => {
-          if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
-            e.preventDefault();
-            const r = e.currentTarget.getBoundingClientRect();
-            choose(o);
-            setContextMenu({ object: o, x: r.left + 20, y: r.bottom });
-          }
-        }}
-      >
-        <span className={"node-icon " + o.kind}>
-          {o.kind === "server" ? "▤" : o.kind === "instance" ? "◈" : "▱"}
-        </span>
-        <span>
-          {o.name}
-          <small>
-            {o.kind === "server"
-              ? o.address
-              : o.kind === "instance"
-                ? o.dbms
-                : o.purpose}
-          </small>
-        </span>
-      </button>
+      <>
+        {o.kind === "database" && (
+          <input
+            type="checkbox"
+            className="tree-check"
+            aria-label={"Выбрать БД " + o.name}
+            checked={checked.has(o.id)}
+            disabled={busy}
+            onChange={(e) => {
+              const next = new Map(checked);
+              if (e.target.checked)
+                next.set(o.id, { id: o.id, version: o.version });
+              else next.delete(o.id);
+              setChecked(next);
+            }}
+          />
+        )}
+        <button
+          className={"tree-node " + (selected?.id === o.id ? "selected" : "")}
+          onClick={() => choose(o)}
+          onDoubleClick={() => {
+            if (o.kind !== "database") toggleBranch(o.id);
+          }}
+          onContextMenu={(e) => openContext(e, o)}
+          onKeyDown={(e) => {
+            if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+              e.preventDefault();
+              const r = e.currentTarget.getBoundingClientRect();
+              choose(o);
+              setContextMenu({ object: o, x: r.left + 20, y: r.bottom });
+            }
+          }}
+        >
+          <span className={"node-icon " + o.kind}>
+            {o.kind === "server" ? "▤" : o.kind === "instance" ? "◈" : "▱"}
+          </span>
+          <span>
+            {o.name}
+            <small>
+              {o.kind === "server"
+                ? o.address
+                : o.kind === "instance"
+                  ? o.dbms
+                  : o.purpose}
+            </small>
+          </span>
+        </button>
+      </>
     );
   }
   const connectionSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -487,6 +517,51 @@ function App() {
               }
             />
           )}
+          {view === "quality" && (
+            <QualityPanel
+              busy={busy}
+              run={run}
+              onOpen={(kind, id) => {
+                const o = [
+                  ...catalog.servers,
+                  ...catalog.instances,
+                  ...catalog.databases,
+                ].find((o) => o.kind === kind && o.id === id);
+                if (o) {
+                  choose(o);
+                  setView("catalog");
+                  setQuery("");
+                  setCriteria(emptyCriteria());
+                  setExpanded(new Set(branchKeys(catalog)));
+                  setPage(
+                    Math.floor(
+                      catalog.servers.findIndex(
+                        (s) =>
+                          s.id ===
+                          (o.kind === "server"
+                            ? o.id
+                            : o.kind === "instance"
+                              ? o.parentId
+                              : o.dbms === "Oracle Database"
+                                ? o.parentId
+                                : catalog.instances.find(
+                                    (i) => i.id === o.parentId,
+                                  )?.parentId),
+                      ) / 10,
+                    ),
+                  );
+                }
+              }}
+            />
+          )}
+          {view === "deleted" && status.user?.role === "admin" && (
+            <DeletedPanel
+              error={error}
+              busy={busy}
+              run={run}
+              onRestored={loadCatalog}
+            />
+          )}
           {view === "downloads" && <DownloadsPanel busy={busy} run={run} />}
           {view === "notifications" && (
             <NotificationsPanel
@@ -583,6 +658,104 @@ function App() {
                 />
                 <Stat label="Баз данных" value={catalog.databases.length} />
               </div>
+              <CatalogFilters
+                value={{ ...criteria, query }}
+                onChange={(f) => {
+                  setCriteria(f);
+                  setQuery(f.query);
+                  setPage(0);
+                }}
+                catalog={catalog}
+                lookups={lookups}
+                busy={busy}
+                run={run}
+              />
+              <div className="selection-toolbar">
+                <span>
+                  БД в результате: {filtered.databases.length} · Выбрано:{" "}
+                  {checked.size} (вне результата:{" "}
+                  {
+                    [...checked.keys()].filter(
+                      (id) => !filtered.databases.some((d) => d.id === id),
+                    ).length
+                  }
+                  )
+                </span>
+                <button
+                  disabled={busy || !filtered.databases.length}
+                  onClick={() =>
+                    setChecked(
+                      new Map(
+                        filtered.databases.map((d) => [
+                          d.id,
+                          { id: d.id, version: d.version },
+                        ]),
+                      ),
+                    )
+                  }
+                >
+                  Выбрать все БД результата
+                </button>
+                <button
+                  disabled={busy || !checked.size}
+                  onClick={() => setChecked(new Map())}
+                >
+                  Снять выбор
+                </button>
+                {canEdit && (
+                  <button
+                    disabled={busy || !checked.size}
+                    onClick={() => setBulkOpen(true)}
+                  >
+                    Массовое редактирование
+                  </button>
+                )}
+                <button
+                  disabled={busy || !filtered.databases.length}
+                  onClick={() =>
+                    void run(async () => {
+                      const f = await api().ExportSelection(
+                        filtered.databases.map((d) => d.id),
+                      );
+                      setMessage("Результат сохранён в Загрузки");
+                      await api().SaveDownloadAs(f.id);
+                    })
+                  }
+                >
+                  Экспорт результата
+                </button>
+                <button
+                  disabled={busy || !checked.size}
+                  onClick={() =>
+                    void run(async () => {
+                      const f = await api().ExportSelection([
+                        ...checked.keys(),
+                      ]);
+                      setMessage("Выбор сохранён в Загрузки");
+                      await api().SaveDownloadAs(f.id);
+                    })
+                  }
+                >
+                  Экспорт выбранного
+                </button>
+              </div>
+              {bulkOpen && (
+                <BulkDialog
+                  error={error}
+                  refs={[...checked.values()]}
+                  lookups={lookups}
+                  busy={busy}
+                  run={run}
+                  onClose={() => setBulkOpen(false)}
+                  onSaved={async () => {
+                    const c = await loadCatalog();
+                    if (selected)
+                      setSelected(
+                        c.databases.find((d) => d.id === selected.id) ?? null,
+                      );
+                  }}
+                />
+              )}
               <div className="catalog-layout">
                 <section className="tree-panel">
                   <div className="tree-tools">

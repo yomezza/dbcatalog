@@ -104,41 +104,18 @@ func (s *Service) SavePolicy(p Policy) (Policy, error) {
 	return result, nil
 }
 func (s *Service) savePolicyTx(ctx context.Context, tx pgx.Tx, p Policy, restore bool) (Policy, error) {
-	if p.Kind != "instance" && p.Kind != "database" {
-		return p, errors.New("Политика назначается экземпляру или базе данных")
-	}
-	p.Name = strings.TrimSpace(p.Name)
-	p.BackupType = strings.TrimSpace(p.BackupType)
-	p.Scheduler = strings.TrimSpace(p.Scheduler)
-	p.Schedule = strings.TrimSpace(p.Schedule)
-	p.Storage = strings.TrimSpace(p.Storage)
-	if p.Name == "" || len([]rune(p.Name)) > 200 {
-		return p, errors.New("Название политики: от 1 до 200 символов")
-	}
-	if p.ObjectID == "" {
-		return p, errors.New("Выберите объект назначения")
-	}
-	if p.BackupType == "" {
-		p.BackupType = "Не указано"
-	}
-	if p.Scheduler == "" {
-		p.Scheduler = "Не указано"
-	}
-	if p.RetentionDays < 0 || p.RetentionDays > 36500 {
-		return p, errors.New("Срок хранения: от 0 до 36500 дней")
-	}
-	for _, v := range []string{p.BackupType, p.Scheduler, p.Schedule, p.Storage, p.Description} {
-		if len(v) > 20000 {
-			return p, errors.New("Параметр политики слишком длинный")
-		}
-	}
-	if p.Enabled && (p.BackupType == "Не указано" || p.Scheduler == "Не указано" || strings.TrimSpace(p.Schedule) == "" || strings.TrimSpace(p.Storage) == "" || p.RetentionDays == 0) {
-		return p, errors.New("Для включённой политики укажите тип РК, планировщик, расписание, путь и срок хранения")
-	}
+	return s.savePolicyMode(ctx, tx, p, restore, false)
+}
+func (s *Service) savePolicyMode(ctx context.Context, tx pgx.Tx, p Policy, restore, recreate bool) (Policy, error) {
 	var err error
+	p, err = normalizePolicy(p)
+	if err != nil {
+		return p, err
+	}
 	var before any
 	action := "create"
-	if p.ID != "" {
+	creating := p.ID == "" || recreate
+	if p.ID != "" && !recreate {
 		var raw []byte
 		if err = tx.QueryRow(ctx, `SELECT to_jsonb(p) FROM backup_policies p WHERE id=$1 FOR UPDATE`, p.ID).Scan(&raw); err != nil {
 			return p, errors.New("Политика не найдена")
@@ -152,7 +129,7 @@ func (s *Service) savePolicyTx(ctx context.Context, tx pgx.Tx, p Policy, restore
 		}
 		before = old
 		action = "update"
-	} else {
+	} else if !recreate {
 		p.ID = security.ID()
 		p.Version = 0
 	}
@@ -171,8 +148,9 @@ func (s *Service) savePolicyTx(ctx context.Context, tx pgx.Tx, p Policy, restore
 		databaseID = p.ObjectID
 	}
 	args := []any{p.ID, instanceID, databaseID, p.Name, p.Enabled, p.BackupType, p.Scheduler, p.Schedule, p.Storage, p.RetentionDays, p.Description, s.user.ID}
-	if action == "create" {
-		_, err = tx.Exec(ctx, `INSERT INTO backup_policies(id,instance_id,database_id,name,enabled,backup_type,scheduler,schedule,storage,retention_days,description,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, args...)
+	if creating {
+		args = append(args, p.Version+1)
+		_, err = tx.Exec(ctx, `INSERT INTO backup_policies(id,instance_id,database_id,name,enabled,backup_type,scheduler,schedule,storage,retention_days,description,updated_by,version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, args...)
 	} else {
 		_, err = tx.Exec(ctx, `UPDATE backup_policies SET instance_id=$2,database_id=$3,name=$4,enabled=$5,backup_type=$6,scheduler=$7,schedule=$8,storage=$9,retention_days=$10,description=$11,updated_by=$12,version=version+1,updated_at=now() WHERE id=$1`, args...)
 	}
@@ -205,6 +183,9 @@ func (s *Service) DeletePolicy(id string, version int64) error {
 	}
 	if old.Version != version {
 		return errors.New("Политика изменена другим пользователем. Обновите список")
+	}
+	if err = s.archiveDeletion(ctx, tx, deletionPlan{preview: DeletionPreview{Kind: "policy", Name: old.Name}, policies: []Policy{old}}); err != nil {
+		return err
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM backup_policies WHERE id=$1`, id); err != nil {
 		return importDatabaseError(err)
@@ -251,4 +232,40 @@ func nullableID(id string) any {
 		return nil
 	}
 	return id
+}
+
+func normalizePolicy(p Policy) (Policy, error) {
+	if p.Kind != "instance" && p.Kind != "database" {
+		return p, errors.New("Политика назначается экземпляру или базе данных")
+	}
+	p.Name = strings.TrimSpace(p.Name)
+	p.BackupType = strings.TrimSpace(p.BackupType)
+	p.Scheduler = strings.TrimSpace(p.Scheduler)
+	p.Schedule = strings.TrimSpace(p.Schedule)
+	p.Storage = strings.TrimSpace(p.Storage)
+	if p.Name == "" || len([]rune(p.Name)) > 200 {
+		return p, errors.New("Название политики: от 1 до 200 символов")
+	}
+	if p.ObjectID == "" {
+		return p, errors.New("Выберите объект назначения")
+	}
+	if p.BackupType == "" {
+		p.BackupType = "Не указано"
+	}
+	if p.Scheduler == "" {
+		p.Scheduler = "Не указано"
+	}
+	if p.RetentionDays < 0 || p.RetentionDays > 36500 {
+		return p, errors.New("Срок хранения: от 0 до 36500 дней")
+	}
+	for _, v := range []string{p.BackupType, p.Scheduler, p.Schedule, p.Storage, p.Description} {
+		if len(v) > 20000 {
+			return p, errors.New("Параметр политики слишком длинный")
+		}
+	}
+	if p.Enabled && (p.BackupType == "Не указано" || p.Scheduler == "Не указано" || strings.TrimSpace(p.Schedule) == "" || strings.TrimSpace(p.Storage) == "" || p.RetentionDays == 0) {
+		return p, errors.New("Для включённой политики укажите тип РК, планировщик, расписание, путь и срок хранения")
+	}
+
+	return p, nil
 }

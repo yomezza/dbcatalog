@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { ImportPolicies } from "./ImportPolicies";
+import { useState, useEffect } from "react";
 import {
   api,
   type ImportPreview,
@@ -26,6 +27,8 @@ export function ExcelPanel({
   error,
   onDownloads,
 }: Props) {
+  const [policyDirty, setPolicyDirty] = useState(false),
+    [policyConfirm, setPolicyConfirm] = useState(false);
   const [preview, setPreview] = useState<ImportPreview | null>(null),
     [result, setResult] = useState<ImportResult | null>(null),
     [skipInvalid, setSkipInvalid] = useState(false),
@@ -34,6 +37,7 @@ export function ExcelPanel({
     [page, setPage] = useState(0),
     [editing, setEditing] = useState<ImportRowPreview | null>(null),
     [downloadNotice, setDownloadNotice] = useState("");
+  useEffect(() => setPolicyConfirm(false), [preview?.token]);
   async function changeRows(rows: number[], exclude: boolean) {
     if (!preview) return;
     await run(async () => {
@@ -43,6 +47,7 @@ export function ExcelPanel({
         exclude,
       );
       setPreview(next);
+      setPolicyConfirm(false);
       setEditing(null);
       setResult(null);
       setSkipInvalid(false);
@@ -52,6 +57,8 @@ export function ExcelPanel({
   }
   async function fileSelected(file: File) {
     setPreview(null);
+    setPolicyDirty(false);
+    setPolicyConfirm(false);
     setResult(null);
     setPage(0);
     setSkipInvalid(false);
@@ -147,14 +154,21 @@ export function ExcelPanel({
                 </span>
               </div>
               {preview.columns === 28 && (
-                <div className="info">
-                  В этой версии импорт переносит данные каталога из первых 21
-                  колонки. Сведения о РК присутствуют в {preview.backupRows}{" "}
-                  строках и не переносятся в политики автоматически: в шаблоне
-                  нет расписания, необходимого для активной политики. Пароли
-                  архива исключаются из импорта, предпросмотра и истории. Строк
-                  с заполненными секретами: {preview.secretsIgnored}.
-                </div>
+                <ImportPolicies
+                  preview={preview}
+                  busy={busy}
+                  run={run}
+                  onDirty={(v) => {
+                    setPolicyDirty(v);
+                    setPolicyConfirm(false);
+                  }}
+                  onChange={(p) => {
+                    setPreview(p);
+                    setCatalogOnly(false);
+                    setPolicyConfirm(false);
+                    setSkipInvalid(false);
+                  }}
+                />
               )}
               <label className="check">
                 <input
@@ -266,7 +280,7 @@ export function ExcelPanel({
                   импортировать только проверенные
                 </label>
               )}
-              {preview.columns === 28 && (
+              {preview.columns === 28 && !preview.withPolicies && (
                 <label className="check">
                   <input
                     type="checkbox"
@@ -275,6 +289,17 @@ export function ExcelPanel({
                   />
                   Подтверждаю импорт только каталога без политик РК и паролей
                   архива
+                </label>
+              )}
+              {preview.withPolicies && (
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={policyConfirm}
+                    onChange={(e) => setPolicyConfirm(e.target.checked)}
+                  />
+                  Подтверждаю назначения и замену существующих политик из
+                  предпросмотра
                 </label>
               )}
               <div className="actions">
@@ -300,7 +325,10 @@ export function ExcelPanel({
                   busy ||
                   !preview.valid ||
                   (preview.valid !== preview.total && !skipInvalid) ||
-                  (preview.columns === 28 && !catalogOnly)
+                  policyDirty ||
+                  (preview.withPolicies
+                    ? !policyConfirm
+                    : preview.columns === 28 && !catalogOnly)
                 }
                 onClick={() =>
                   void run(async () => {
@@ -324,7 +352,9 @@ export function ExcelPanel({
               Импорт завершён. Создано серверов: {result.serversCreated},
               экземпляров: {result.instancesCreated}, БД:{" "}
               {result.databasesCreated}. Обновлено объектов:{" "}
-              {result.objectsUpdated}. Пропущено ошибочных строк:{" "}
+              {result.objectsUpdated}. Политик создано:{" "}
+              {result.policiesCreated ?? 0}, обновлено:{" "}
+              {result.policiesUpdated ?? 0}. Пропущено ошибочных строк:{" "}
               {result.skipped}. Исключено перед импортом: {result.excluded ?? 0}
               .
             </div>
@@ -344,6 +374,7 @@ export function ExcelPanel({
                 { row: editing.row, values },
               ]);
               setPreview(next);
+              setPolicyConfirm(false);
               setEditing(null);
               setSkipInvalid(false);
               setCatalogOnly(false);

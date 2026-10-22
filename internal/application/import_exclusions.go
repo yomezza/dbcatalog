@@ -48,6 +48,11 @@ func (s *Service) SetImportRowsExcluded(token string, rows []int, exclude bool) 
 	if err != nil {
 		return ImportPreview{}, err
 	}
+	if old.policyConfig != nil {
+		if err = s.attachImportPolicies(ctx, tx, next, *old.policyConfig); err != nil {
+			return ImportPreview{}, err
+		}
+	}
 	s.pendingImport = next
 	return next.preview, nil
 }

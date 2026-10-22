@@ -232,6 +232,9 @@ func (s *Service) deleteTree(kind, id string, version int64, fingerprint string)
 	if fingerprint != "" && fingerprint != plan.preview.Fingerprint {
 		return DeletionPreview{}, errors.New("Состав или данные удаляемых записей изменились. Закройте подтверждение и проверьте состав заново")
 	}
+	if err = s.archiveDeletion(ctx, tx, plan); err != nil {
+		return DeletionPreview{}, err
+	}
 	for _, p := range plan.policies {
 		if err = history(ctx, tx, s.user.ID, "delete", "policy", p.ID, p, nil); err != nil {
 			return DeletionPreview{}, importDatabaseError(err)
