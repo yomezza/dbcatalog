@@ -1,4 +1,4 @@
-#define AppVersion "0.1.0"
+#define AppVersion "0.2.0"
 [Setup]
 AppId={{77CC22CF-5766-4A80-A049-853E7A9B22E0}
 AppName=CatalogDB

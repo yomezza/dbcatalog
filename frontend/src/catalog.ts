@@ -3,7 +3,17 @@ export function visibleServers(c: Catalog, query: string): CatalogObject[] {
   const q = query.trim().toLocaleLowerCase("ru");
   if (!q) return c.servers;
   const match = (o: CatalogObject) =>
-    [o.name, o.address, o.dbms, o.description, o.purpose]
+    [
+      o.name,
+      o.address,
+      o.dbms,
+      o.description,
+      o.purpose,
+      o.os,
+      o.environment,
+      o.status,
+      ...Object.values(o.attributes ?? {}).flat(),
+    ]
       .join(" ")
       .toLocaleLowerCase("ru")
       .includes(q);

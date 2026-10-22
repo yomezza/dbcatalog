@@ -4,18 +4,27 @@ import {
   api,
   emptyCatalog,
   newObject,
+  newPolicy,
+  type Policy,
   type Connection,
   type User,
   type Status,
   type Catalog,
   type CatalogObject,
   type HistoryEntry,
+  type Lookups,
 } from "./api";
 import { visibleServers, pageOf } from "./catalog";
 import "./style.css";
-import { Field, Stat, UserRow } from "./components";
+import { Stat, UserRow } from "./components";
 import { ConnectionPanel } from "./ConnectionPanel";
 import { AuthPanel } from "./AuthPanel";
+import { BackupCard, PoliciesPanel, PolicyEditor } from "./PoliciesPanel";
+import { ExcelPanel } from "./ExcelPanel";
+import { ObjectEditor } from "./ObjectEditor";
+import { ContextMenu } from "./ContextMenu";
+import { FavoritesPanel } from "./FavoritesPanel";
+import { fieldLabels, objectValue } from "./objectFields";
 
 const labels = {
   server: "Сервер",
@@ -27,20 +36,6 @@ const roleLabels = {
   editor: "Редактор",
   viewer: "Наблюдатель",
 };
-const fieldLabels: Record<string, string> = {
-  name: "Название",
-  address: "Адрес",
-  os: "ОС",
-  environment: "Среда",
-  status: "Статус",
-  description: "Описание",
-  dbms: "СУБД",
-  dbmsVersion: "Версия СУБД",
-  port: "Порт",
-  purpose: "Назначение",
-  parentId: "Родительский объект",
-  version: "Версия записи",
-};
 const initialConnection: Connection = {
   host: "localhost",
   port: 5432,
@@ -51,9 +46,15 @@ const initialConnection: Connection = {
   sslRootCert: "",
 };
 function App() {
-  const [view, setView] = useState<"connection" | "auth" | "catalog" | "users">(
-    "connection",
-  );
+  const [view, setView] = useState<
+    | "connection"
+    | "auth"
+    | "catalog"
+    | "users"
+    | "favorites"
+    | "excel"
+    | "policies"
+  >("connection");
   const [connection, setConnection] = useState<Connection>(initialConnection),
     [password, setPassword] = useState(""),
     [hasPassword, setHasPassword] = useState(false),
@@ -79,6 +80,61 @@ function App() {
     [page, setPage] = useState(0),
     [users, setUsers] = useState<User[]>([]),
     [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [policies, setPolicies] = useState<Policy[]>([]),
+    [policyEditor, setPolicyEditor] = useState<Policy | null>(null),
+    [policyDelete, setPolicyDelete] = useState<Policy | null>(null);
+  function openPolicy(o: CatalogObject) {
+    if (o.kind === "server") return;
+    setError("");
+    setPolicyEditor(
+      policies.find((p) => p.kind === o.kind && p.objectId === o.id) ??
+        newPolicy(o.kind, o.id),
+    );
+  }
+  const [lookups, setLookups] = useState<Lookups>({});
+  const [favorites, setFavorites] = useState<CatalogObject[]>([]);
+  const [contextMenu, setContextMenu] = useState<{
+    object: CatalogObject;
+    x: number;
+    y: number;
+  } | null>(null);
+  const isFavorite = (o: CatalogObject) =>
+    favorites.some((f) => f.kind === o.kind && f.id === o.id);
+  function openContext(e: React.MouseEvent, o: CatalogObject) {
+    e.preventDefault();
+    if (busy) return;
+    choose(o);
+    setContextMenu({ object: o, x: e.clientX, y: e.clientY });
+  }
+  function goTo(o: CatalogObject) {
+    choose(o);
+    setView("catalog");
+    setQuery("");
+    const instance =
+      o.kind === "database"
+        ? catalog.instances.find((i) => i.id === o.parentId)
+        : null;
+    const serverID =
+      o.kind === "server"
+        ? o.id
+        : o.kind === "instance"
+          ? o.parentId
+          : instance?.parentId;
+    setPage(
+      Math.max(
+        0,
+        Math.floor(catalog.servers.findIndex((s) => s.id === serverID) / 10),
+      ),
+    );
+  }
+  async function toggleFavorite(o: CatalogObject) {
+    await api().SetFavorite(o.kind, o.id, !isFavorite(o));
+    setFavorites(await api().ListFavorites());
+  }
+  function openEditor(o: CatalogObject) {
+    setError("");
+    setEditor(o);
+  }
   async function run(work: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -105,7 +161,15 @@ function App() {
     });
   }, []);
   async function loadCatalog() {
-    const result = await api().GetCatalog();
+    const [result, refs, favs, ps] = await Promise.all([
+      api().GetCatalog(),
+      api().GetLookups(),
+      api().ListFavorites(),
+      api().ListPolicies(),
+    ]);
+    setPolicies(ps);
+    setLookups(refs);
+    setFavorites(favs);
     setCatalog(result);
     return result;
   }
@@ -131,6 +195,15 @@ function App() {
       <button
         className={"tree-node " + (selected?.id === o.id ? "selected" : "")}
         onClick={() => choose(o)}
+        onContextMenu={(e) => openContext(e, o)}
+        onKeyDown={(e) => {
+          if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+            e.preventDefault();
+            const r = e.currentTarget.getBoundingClientRect();
+            choose(o);
+            setContextMenu({ object: o, x: r.left + 20, y: r.bottom });
+          }
+        }}
       >
         <span className={"node-icon " + o.kind}>
           {o.kind === "server" ? "▤" : o.kind === "instance" ? "◈" : "▱"}
@@ -163,6 +236,14 @@ function App() {
       setRegister(false);
       setCatalog(emptyCatalog);
       setSelected(null);
+      setPolicyEditor(null);
+      setPolicyDelete(null);
+      setDeleteTarget(null);
+      setContextMenu(null);
+      setHistory(null);
+      setFavorites([]);
+      setLookups({});
+      setPolicies([]);
       setView("auth");
     });
   };
@@ -225,6 +306,37 @@ function App() {
             >
               ▦ Общий каталог
             </button>
+            <button
+              disabled={!status.user || busy}
+              className={view === "policies" ? "active" : ""}
+              onClick={() =>
+                void run(async () => {
+                  setPolicies(await api().ListPolicies());
+                  setView("policies");
+                })
+              }
+            >
+              ◷ Политики РК
+            </button>
+            <button
+              disabled={!status.user || busy}
+              className={view === "excel" ? "active" : ""}
+              onClick={() => setView("excel")}
+            >
+              ⇄ Excel
+            </button>
+            <button
+              disabled={!status.user || busy}
+              className={view === "favorites" ? "active" : ""}
+              onClick={() =>
+                void run(async () => {
+                  setFavorites(await api().ListFavorites());
+                  setView("favorites");
+                })
+              }
+            >
+              ★ Избранное
+            </button>
             {status.user?.role === "admin" && (
               <button
                 disabled={busy}
@@ -266,8 +378,16 @@ function App() {
                       await api().Logout();
                       setStatus((s) => ({ ...s, user: null }));
                       setCatalog(emptyCatalog);
+                      setFavorites([]);
+                      setLookups({});
+                      setPolicies([]);
                       setSelected(null);
                       setEditor(null);
+                      setPolicyEditor(null);
+                      setPolicyDelete(null);
+                      setDeleteTarget(null);
+                      setContextMenu(null);
+                      setHistory(null);
                       setView("auth");
                     })
                   }
@@ -353,7 +473,7 @@ function App() {
                     <button
                       disabled={busy}
                       className="primary"
-                      onClick={() => setEditor(newObject("server"))}
+                      onClick={() => openEditor(newObject("server"))}
                     >
                       + Добавить сервер
                     </button>
@@ -441,7 +561,7 @@ function App() {
                             ([key]) => !["version", "parentId"].includes(key),
                           )
                           .map(([key, label]) => {
-                            const value = selected[key as keyof CatalogObject];
+                            const value = objectValue(selected, key);
                             return value ? (
                               <React.Fragment key={key}>
                                 <dt>{label}</dt>
@@ -450,12 +570,30 @@ function App() {
                             ) : null;
                           })}
                       </dl>
+                      {selected.kind !== "server" && (
+                        <BackupCard
+                          object={selected}
+                          policies={policies}
+                          canEdit={!!canEdit}
+                          onEdit={openPolicy}
+                        />
+                      )}
                       <div className="detail-actions">
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            void run(() => toggleFavorite(selected))
+                          }
+                        >
+                          {isFavorite(selected)
+                            ? "★ В избранном"
+                            : "☆ В избранное"}
+                        </button>
                         {canEdit && (
                           <>
                             <button
                               disabled={busy}
-                              onClick={() => setEditor({ ...selected })}
+                              onClick={() => openEditor({ ...selected })}
                             >
                               Изменить
                             </button>
@@ -463,7 +601,7 @@ function App() {
                               <button
                                 disabled={busy}
                                 onClick={() =>
-                                  setEditor(
+                                  openEditor(
                                     newObject(
                                       selected.kind === "server"
                                         ? "instance"
@@ -528,21 +666,16 @@ function App() {
                               {Object.entries(fieldLabels)
                                 .filter(
                                   ([k]) =>
-                                    h.before?.[k as keyof CatalogObject] !==
-                                    h.after?.[k as keyof CatalogObject],
+                                    objectValue(h.before, k) !==
+                                    objectValue(h.after, k),
                                 )
                                 .map(([k, label]) => (
                                   <p key={k}>
                                     <b>{label}: </b>
                                     {String(
-                                      h.before?.[k as keyof CatalogObject] ??
-                                        "—",
-                                    )}{" "}
-                                    →{" "}
-                                    {String(
-                                      h.after?.[k as keyof CatalogObject] ??
-                                        "—",
-                                    )}
+                                      objectValue(h.before, k) || "—",
+                                    )} →{" "}
+                                    {String(objectValue(h.after, k) || "—")}
                                   </p>
                                 ))}
                             </article>
@@ -560,6 +693,45 @@ function App() {
                 </section>
               </div>
             </>
+          )}
+          {view === "policies" && (
+            <PoliciesPanel
+              catalog={catalog}
+              policies={policies}
+              busy={busy}
+              canEdit={!!canEdit}
+              canDelete={status.user?.role === "admin"}
+              onEdit={(p) => {
+                setError("");
+                setPolicyEditor(p);
+              }}
+              onDelete={(p) => {
+                setError("");
+                setPolicyDelete(p);
+              }}
+              onCreate={() => {
+                setError("");
+                setPolicyEditor(newPolicy());
+              }}
+              run={run}
+            />
+          )}
+          {view === "excel" && (
+            <ExcelPanel
+              canEdit={!!canEdit}
+              busy={busy}
+              run={run}
+              onImported={loadCatalog}
+            />
+          )}
+          {view === "favorites" && (
+            <FavoritesPanel
+              objects={favorites}
+              busy={busy}
+              onOpen={goTo}
+              onRemove={(o) => void run(() => toggleFavorite(o))}
+              onContext={openContext}
+            />
           )}
           {view === "users" && (
             <>
@@ -610,181 +782,117 @@ function App() {
         </main>
       </div>
       {editor && (
+        <ObjectEditor
+          editor={editor}
+          catalog={catalog}
+          lookups={lookups}
+          busy={busy}
+          error={error}
+          onChange={setEditor}
+          onClose={() => setEditor(null)}
+          onSave={() =>
+            void run(async () => {
+              const saved = await api().SaveObject(editor);
+              await loadCatalog();
+              setSelected(saved);
+              setHistory(null);
+              setEditor(null);
+              setMessage("Объект сохранён");
+            })
+          }
+        />
+      )}
+      {contextMenu && (
+        <ContextMenu
+          {...contextMenu}
+          canEdit={!!canEdit}
+          canDelete={status.user?.role === "admin"}
+          favorite={isFavorite(contextMenu.object)}
+          onClose={() => setContextMenu(null)}
+          onOpen={() => goTo(contextMenu.object)}
+          onEdit={() => openEditor({ ...contextMenu.object })}
+          onAdd={() =>
+            openEditor(
+              newObject(
+                contextMenu.object.kind === "server" ? "instance" : "database",
+                contextMenu.object.id,
+              ),
+            )
+          }
+          onPolicy={() => openPolicy(contextMenu.object)}
+          onHistory={() => {
+            goTo(contextMenu.object);
+            void run(async () =>
+              setHistory(
+                await api().GetHistory(
+                  contextMenu.object.kind,
+                  contextMenu.object.id,
+                ),
+              ),
+            );
+          }}
+          onFavorite={() => void run(() => toggleFavorite(contextMenu.object))}
+          onDelete={() => {
+            setError("");
+            setDeleteTarget(contextMenu.object);
+          }}
+        />
+      )}
+      {policyEditor && (
+        <PolicyEditor
+          policy={policyEditor}
+          catalog={catalog}
+          lookups={lookups}
+          busy={busy}
+          error={error}
+          onChange={setPolicyEditor}
+          onClose={() => setPolicyEditor(null)}
+          onSave={() =>
+            void run(async () => {
+              await api().SavePolicy(policyEditor);
+              setPolicies(await api().ListPolicies());
+              setPolicyEditor(null);
+              setMessage("Политика сохранена");
+            })
+          }
+        />
+      )}
+      {policyDelete && (
         <div className="modal-backdrop">
           <section
-            className="modal"
+            className="modal compact"
             role="dialog"
             aria-modal="true"
-            aria-label="Редактирование объекта"
+            aria-label="Подтверждение удаления политики"
           >
-            <h2>
-              {editor.id ? "Изменить" : "Добавить"}:{" "}
-              {labels[editor.kind].toLowerCase()}
-            </h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void run(async () => {
-                  const saved = await api().SaveObject(editor);
-                  await loadCatalog();
-                  setSelected(saved);
-                  setHistory(null);
-                  setEditor(null);
-                  setMessage("Объект сохранён");
-                });
-              }}
-            >
-              <fieldset disabled={busy}>
-                <div className="form-grid">
-                  <Field label="Название *">
-                    <input
-                      required
-                      maxLength={200}
-                      value={editor.name}
-                      onChange={(e) =>
-                        setEditor({ ...editor, name: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Статус">
-                    <input
-                      value={editor.status}
-                      onChange={(e) =>
-                        setEditor({ ...editor, status: e.target.value })
-                      }
-                    />
-                  </Field>
-                  {editor.kind === "server" ? (
-                    <>
-                      <Field label="IP / сетевой адрес">
-                        <input
-                          value={editor.address}
-                          onChange={(e) =>
-                            setEditor({ ...editor, address: e.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field label="Операционная система">
-                        <input
-                          value={editor.os}
-                          onChange={(e) =>
-                            setEditor({ ...editor, os: e.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field label="Среда эксплуатации">
-                        <input
-                          value={editor.environment}
-                          onChange={(e) =>
-                            setEditor({
-                              ...editor,
-                              environment: e.target.value,
-                            })
-                          }
-                        />
-                      </Field>
-                    </>
-                  ) : (
-                    <Field
-                      label={
-                        editor.kind === "instance"
-                          ? "Сервер *"
-                          : "Экземпляр СУБД *"
-                      }
-                    >
-                      <select
-                        required
-                        value={editor.parentId}
-                        onChange={(e) =>
-                          setEditor({ ...editor, parentId: e.target.value })
-                        }
-                      >
-                        <option value="">Выберите объект</option>
-                        {(editor.kind === "instance"
-                          ? catalog.servers
-                          : catalog.instances
-                        ).map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  )}
-                  {editor.kind === "instance" && (
-                    <>
-                      <Field label="Тип СУБД *">
-                        <input
-                          required
-                          value={editor.dbms}
-                          onChange={(e) =>
-                            setEditor({ ...editor, dbms: e.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field label="Версия СУБД">
-                        <input
-                          value={editor.dbmsVersion}
-                          onChange={(e) =>
-                            setEditor({
-                              ...editor,
-                              dbmsVersion: e.target.value,
-                            })
-                          }
-                        />
-                      </Field>
-                      <Field label="Порт">
-                        <input
-                          type="number"
-                          min={1}
-                          max={65535}
-                          value={editor.port ?? ""}
-                          onChange={(e) =>
-                            setEditor({
-                              ...editor,
-                              port: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                            })
-                          }
-                        />
-                      </Field>
-                    </>
-                  )}
-                  {editor.kind === "database" && (
-                    <Field label="Назначение / информационная система">
-                      <input
-                        value={editor.purpose}
-                        onChange={(e) =>
-                          setEditor({ ...editor, purpose: e.target.value })
-                        }
-                      />
-                    </Field>
-                  )}
-                </div>
-                <Field label="Описание">
-                  <textarea
-                    maxLength={20000}
-                    rows={4}
-                    value={editor.description}
-                    onChange={(e) =>
-                      setEditor({ ...editor, description: e.target.value })
-                    }
-                  />
-                </Field>
-                <div className="actions">
-                  <button type="button" onClick={() => setEditor(null)}>
-                    Отмена
-                  </button>
-                  <button className="primary">Сохранить</button>
-                </div>
-              </fieldset>
-            </form>
-            {error && (
-              <p className="error notice" role="alert">
-                {error}
-              </p>
-            )}
+            <h2>Удалить политику «{policyDelete.name}»?</h2>
+            <p>
+              После удаления политики БД может снова применяться политика
+              экземпляра. История изменений сохранится.
+            </p>
+            <div className="actions">
+              <button disabled={busy} onClick={() => setPolicyDelete(null)}>
+                Отмена
+              </button>
+              <button
+                className="danger"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await api().DeletePolicy(
+                      policyDelete.id,
+                      policyDelete.version,
+                    );
+                    setPolicies(await api().ListPolicies());
+                    setPolicyDelete(null);
+                    setMessage("Политика удалена");
+                  })
+                }
+              >
+                Удалить
+              </button>
+            </div>
+            {error && <div className="notice error">{error}</div>}
           </section>
         </div>
       )}

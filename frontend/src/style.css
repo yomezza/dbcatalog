@@ -562,3 +562,113 @@ td {
     font-size: 24px;
   }
 }
+.multi-select {
+  border: 1px solid #dbe6ed;
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin: 3px 0 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+.multi-select legend {
+  color: #4a6273;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+.multi-select .check {
+  margin: 0;
+  line-height: 1.5;
+}
+.multi-select input {
+  flex-shrink: 0;
+}
+.object-editor {
+  width: 780px;
+}
+.context-menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 250px;
+  padding: 6px;
+  background: white;
+  border: 1px solid #d6e1e9;
+  border-radius: 8px;
+  box-shadow: 0 10px 35px #08243630;
+  display: grid;
+  gap: 2px;
+}
+.context-menu button {
+  border: 0;
+  text-align: left;
+  padding: 11px 12px;
+  font-size: 12px;
+}
+.context-menu button:focus {
+  outline: 2px solid #69a9b8;
+  background: #eef8fa;
+}
+.table-panel .link {
+  margin: 0;
+  padding: 0;
+}
+.excel-panel {
+  background: white;
+  border: 1px solid #e0e8ef;
+  border-radius: 9px;
+  padding: 26px;
+}
+.import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  background: #f4f8fa;
+  padding: 18px;
+  border-radius: 7px;
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+.import-table {
+  overflow: auto;
+  max-height: 400px;
+  border: 1px solid #e4ebf1;
+}
+.import-table th {
+  position: sticky;
+  top: 0;
+}
+.import-table td {
+  font-size: 11px;
+  padding: 11px;
+}
+.excel-panel > .check {
+  margin-top: 17px;
+}
+.excel-panel > .success {
+  margin-top: 20px;
+}
+.backup-card {
+  border: 1px solid #dce8ed;
+  background: #f7fafb;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0 25px;
+}
+.backup-card h3 {
+  margin-top: 0;
+}
+.backup-card p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.backup-card dl {
+  margin: 18px 0;
+  gap: 10px;
+}
+.backup-card .muted {
+  margin: 10px 0;
+}
+.backup-card button {
+  font-size: 12px;
+}

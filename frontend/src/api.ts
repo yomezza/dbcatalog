@@ -20,7 +20,35 @@ export interface Status {
   user: User | null;
 }
 export type Kind = "server" | "instance" | "database";
+export interface Attributes {
+  connectionMethod: string;
+  domain: string;
+  location: string;
+  serviceOrganization: string;
+  supervisor: string;
+  responsible: string;
+  osVersion: string;
+  osFamily: string;
+  administration: string[];
+  personalData: string;
+  informationSystem: string;
+}
+export type Lookups = Record<string, string[]>;
+export const emptyAttributes = (): Attributes => ({
+  connectionMethod: "",
+  domain: "",
+  location: "",
+  serviceOrganization: "",
+  supervisor: "",
+  responsible: "",
+  osVersion: "",
+  osFamily: "",
+  administration: [],
+  personalData: "",
+  informationSystem: "",
+});
 export interface CatalogObject {
+  attributes: Attributes;
   id: string;
   kind: Kind;
   parentId: string;
@@ -49,7 +77,90 @@ export interface HistoryEntry {
   before: CatalogObject | null;
   after: CatalogObject | null;
 }
+export interface ImportRowPreview {
+  row: number;
+  server: string;
+  instance: string;
+  database: string;
+  errors: string[];
+}
+export interface ImportPreview {
+  token: string;
+  sheet: string;
+  columns: number;
+  total: number;
+  valid: number;
+  ignored: number;
+  secretsIgnored: number;
+  backupRows: number;
+  rows: ImportRowPreview[];
+}
+export interface ImportResult {
+  serversCreated: number;
+  instancesCreated: number;
+  databasesCreated: number;
+  objectsUpdated: number;
+  skipped: number;
+}
+export interface Policy {
+  id: string;
+  kind: "instance" | "database";
+  objectId: string;
+  name: string;
+  enabled: boolean;
+  backupType: string;
+  scheduler: string;
+  schedule: string;
+  storage: string;
+  retentionDays: number;
+  description: string;
+  version: number;
+}
+export interface PolicyHistoryEntry {
+  id: number;
+  action: string;
+  actor: string;
+  createdAt: string;
+  before: Policy | null;
+  after: Policy | null;
+}
+export function newPolicy(
+  kind: "instance" | "database" = "instance",
+  objectId = "",
+): Policy {
+  return {
+    id: "",
+    kind,
+    objectId,
+    name: "Политика РК",
+    enabled: false,
+    backupType: "Не указано",
+    scheduler: "Не указано",
+    schedule: "",
+    storage: "",
+    retentionDays: 0,
+    description: "",
+    version: 0,
+  };
+}
 interface Backend {
+  ListPolicies(): Promise<Policy[]>;
+  SavePolicy(p: Policy): Promise<Policy>;
+  DeletePolicy(id: string, version: number): Promise<void>;
+  GetEffectivePolicy(
+    id: string,
+  ): Promise<{ policy: Policy | null; inherited: boolean }>;
+  GetPolicyHistory(id: string): Promise<PolicyHistoryEntry[]>;
+  PreviewExcel(encoded: string): Promise<ImportPreview>;
+  ApplyExcel(
+    token: string,
+    skipInvalid: boolean,
+    catalogOnly: boolean,
+  ): Promise<ImportResult>;
+  ExportExcel(): Promise<string>;
+  GetLookups(): Promise<Lookups>;
+  ListFavorites(): Promise<CatalogObject[]>;
+  SetFavorite(kind: Kind, id: string, enabled: boolean): Promise<void>;
   IsSetupMode(): Promise<boolean>;
   GetConnection(): Promise<{ connection: Connection; hasPassword: boolean }>;
   Connect(
@@ -100,7 +211,8 @@ export function newObject(kind: Kind, parentId = ""): CatalogObject {
     address: "",
     os: "",
     environment: "",
-    status: "Активен",
+    status: "Эксплуатируется",
+    attributes: emptyAttributes(),
     description: "",
     dbms: "PostgreSQL",
     dbmsVersion: "",

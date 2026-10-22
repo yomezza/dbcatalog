@@ -84,7 +84,7 @@ type HistoryEntry struct {
 func (s *Service) GetHistory(kind, id string) ([]HistoryEntry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, err := table(kind); err != nil {
+	if _, err := table(kind); err != nil && kind != "policy" {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

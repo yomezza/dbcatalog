@@ -44,14 +44,15 @@ type SavedConnection struct {
 	HasPassword bool              `json:"hasPassword"`
 }
 type Service struct {
-	mu        sync.Mutex
-	pool      *pgxpool.Pool
-	schema    string
-	user      *User
-	path      string
-	store     CredentialStore
-	nextLogin time.Time
-	dummyHash string
+	pendingImport *importPlan
+	mu            sync.Mutex
+	pool          *pgxpool.Pool
+	schema        string
+	user          *User
+	path          string
+	store         CredentialStore
+	nextLogin     time.Time
+	dummyHash     string
 }
 
 func New(path string, store CredentialStore) *Service {
@@ -66,6 +67,7 @@ func (s *Service) Close() {
 		s.pool = nil
 	}
 	s.user = nil
+	s.pendingImport = nil
 }
 func (s *Service) GetConnection() (SavedConnection, error) {
 	s.mu.Lock()
@@ -120,6 +122,7 @@ func (s *Service) Connect(c config.Connection, password string, useSaved, rememb
 	s.pool = pool
 	s.schema = c.Schema
 	s.user = nil
+	s.pendingImport = nil
 	return s.status(ctx)
 }
 func (s *Service) status(ctx context.Context) (Status, error) {
@@ -227,10 +230,16 @@ func (s *Service) Login(login, password string) (User, error) {
 	if _, err = s.pool.Exec(ctx, `INSERT INTO audit_events(actor_id,action) VALUES($1,'login')`, u.ID); err != nil {
 		return User{}, errors.New(database.PublicError(err))
 	}
+	s.pendingImport = nil
 	s.user = &u
 	return u, nil
 }
-func (s *Service) Logout() { s.mu.Lock(); defer s.mu.Unlock(); s.user = nil }
+func (s *Service) Logout() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.user = nil
+	s.pendingImport = nil
+}
 func (s *Service) authorize(ctx context.Context, tx pgx.Tx, write, admin bool) error {
 	if s.user == nil {
 		return errors.New("Войдите в приложение")

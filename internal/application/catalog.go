@@ -13,20 +13,21 @@ import (
 )
 
 type Object struct {
-	ID          string `json:"id"`
-	Kind        string `json:"kind"`
-	ParentID    string `json:"parentId"`
-	Name        string `json:"name"`
-	Address     string `json:"address"`
-	OS          string `json:"os"`
-	Environment string `json:"environment"`
-	Status      string `json:"status"`
-	Description string `json:"description"`
-	DBMS        string `json:"dbms"`
-	DBMSVersion string `json:"dbmsVersion"`
-	Port        *int   `json:"port"`
-	Purpose     string `json:"purpose"`
-	Version     int64  `json:"version"`
+	Attributes  Attributes `json:"attributes"`
+	ID          string     `json:"id"`
+	Kind        string     `json:"kind"`
+	ParentID    string     `json:"parentId"`
+	Name        string     `json:"name"`
+	Address     string     `json:"address"`
+	OS          string     `json:"os"`
+	Environment string     `json:"environment"`
+	Status      string     `json:"status"`
+	Description string     `json:"description"`
+	DBMS        string     `json:"dbms"`
+	DBMSVersion string     `json:"dbmsVersion"`
+	Port        *int       `json:"port"`
+	Purpose     string     `json:"purpose"`
+	Version     int64      `json:"version"`
 }
 type Catalog struct {
 	Servers   []Object `json:"servers"`
@@ -117,6 +118,9 @@ func decodeObject(raw []byte, kind string) (Object, error) {
 	if err := json.Unmarshal(raw, &extra); err != nil {
 		return o, err
 	}
+	if o.Attributes.Administration == nil {
+		o.Attributes.Administration = []string{}
+	}
 	o.Kind = kind
 	o.DBMSVersion = extra.DBMSVersion
 	if kind == "instance" {
@@ -130,11 +134,32 @@ func decodeObject(raw []byte, kind string) (Object, error) {
 func (s *Service) SaveObject(o Object) (Object, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	tx, err := s.readTransaction(ctx, true, false)
+	if err != nil {
+		return o, err
+	}
+	defer tx.Rollback(ctx)
+	result, err := s.saveObjectTx(ctx, tx, o)
+	if err != nil {
+		return o, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return o, errors.New(database.PublicError(err))
+	}
+	return result, nil
+}
+func (s *Service) saveObjectTx(ctx context.Context, tx pgx.Tx, o Object) (Object, error) {
 	t, err := table(o.Kind)
 	if err != nil {
 		return o, err
 	}
 	o.Name = strings.TrimSpace(o.Name)
+	o.Attributes, err = normalizeAttributes(o.Attributes)
+	if err != nil {
+		return o, err
+	}
 	if o.Name == "" || len([]rune(o.Name)) > 200 {
 		return o, errors.New("Укажите название длиной до 200 символов")
 	}
@@ -150,14 +175,8 @@ func (s *Service) SaveObject(o Object) (Object, error) {
 	if o.Port != nil && (*o.Port < 1 || *o.Port > 65535) {
 		return o, errors.New("Порт должен быть от 1 до 65535")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	tx, err := s.readTransaction(ctx, true, false)
-	if err != nil {
-		return o, err
-	}
-	defer tx.Rollback(ctx)
 	var before any
+	var previous Object
 	action := "create"
 	if o.ID != "" {
 		action = "update"
@@ -173,12 +192,16 @@ func (s *Service) SaveObject(o Object) (Object, error) {
 			return o, errors.New("Объект уже изменён другим пользователем. Обновите каталог и повторите редактирование")
 		}
 		before = old
+		previous = old
 	} else {
 		o.ID = security.ID()
 		o.Version = 0
 	}
 	if o.Status == "" {
-		o.Status = "Активен"
+		o.Status = "Эксплуатируется"
+	}
+	if err = validateObjectChoices(ctx, tx, o, previous); err != nil {
+		return o, err
 	}
 	var sql string
 	var args []any
@@ -208,15 +231,21 @@ func (s *Service) SaveObject(o Object) (Object, error) {
 	if _, err = tx.Exec(ctx, sql, args...); err != nil {
 		return o, errors.New(database.PublicError(err))
 	}
+	attributes, err := json.Marshal(o.Attributes)
+	if err != nil {
+		return o, err
+	}
+	if _, err = tx.Exec(ctx, "UPDATE "+t+" SET attributes=$2,environment=$3 WHERE id=$1", o.ID, attributes, o.Environment); err != nil {
+		return o, errors.New(database.PublicError(err))
+	}
 	o.Version++
 	if err = history(ctx, tx, s.user.ID, action, o.Kind, o.ID, before, o); err != nil {
 		return o, errors.New(database.PublicError(err))
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return o, errors.New(database.PublicError(err))
-	}
+
 	return o, nil
 }
+
 func (s *Service) DeleteObject(kind, id string, version int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
