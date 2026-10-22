@@ -1,4 +1,4 @@
-import { objectPath } from "./objectPath";
+import { ObjectPicker } from "./ui/ObjectPicker";
 import { useId } from "react";
 import {
   type Attributes,
@@ -76,7 +76,6 @@ interface Props {
 }
 export function ObjectEditor({
   editor: o,
-  catalog,
   lookups,
   busy,
   error,
@@ -185,21 +184,19 @@ export function ObjectEditor({
                       : "Экземпляр СУБД *"
                   }
                 >
-                  <select
-                    required
+                  <ObjectPicker
+                    kind={
+                      o.kind === "instance" || oracle ? "server" : "instance"
+                    }
                     value={o.parentId}
-                    onChange={(e) => field("parentId", e.target.value)}
-                  >
-                    <option value="">Выберите объект</option>
-                    {(o.kind === "instance" || oracle
-                      ? catalog.servers
-                      : catalog.instances
-                    ).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {objectPath(p, catalog)}
-                      </option>
-                    ))}
-                  </select>
+                    label={
+                      o.kind === "instance" || oracle
+                        ? "Сервер *"
+                        : "Экземпляр СУБД *"
+                    }
+                    disabled={busy}
+                    onChange={(option) => field("parentId", option.object.id)}
+                  />
                 </Field>
               )}
               {o.kind === "server" && (

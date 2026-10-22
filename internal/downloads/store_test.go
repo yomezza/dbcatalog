@@ -41,3 +41,31 @@ func TestPersistenceIntegrityAndIsolation(t *testing.T) {
 		t.Fatal("missing files must retain history", items, err)
 	}
 }
+
+func TestDocumentDownloadsKeepJSONPayloadSeparateFromMetadata(t *testing.T) {
+	store := Store{Root: t.TempDir()}
+	for _, name := range []string{"instruction.docx", "guide.pdf", "settings.json", "script.sql", "script.ps1"} {
+		data := []byte("synthetic " + name)
+		entry, err := store.Add(name, "Вложение", data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, path, err := store.Resolve(entry.ID)
+		if err != nil {
+			t.Fatal(name, err)
+		}
+		actual, err := os.ReadFile(path)
+		if err != nil || string(actual) != string(data) {
+			t.Fatal("payload changed", name, err)
+		}
+	}
+	entries, err := store.List()
+	if err != nil || len(entries) != 5 {
+		t.Fatal(entries, err)
+	}
+	for _, entry := range entries {
+		if !entry.Available {
+			t.Fatal("saved payload is missing", entry.Name)
+		}
+	}
+}

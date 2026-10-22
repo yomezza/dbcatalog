@@ -271,6 +271,41 @@ export interface VersionPage {
   exists: boolean;
 }
 interface Backend {
+  BrowseCatalog(r: CatalogBrowseRequest): Promise<CatalogPage>;
+  GetCatalogWorkspace(): Promise<CatalogWorkspace>;
+  GetObjectContext(kind: Kind, id: string): Promise<ObjectContext>;
+  FindObjects(kind: Kind, query: string, page: number): Promise<ObjectOptions>;
+  SelectCatalogResult(criteria: CatalogCriteria): Promise<ObjectRef[]>;
+  CountSelectionOutside(
+    criteria: CatalogCriteria,
+    ids: string[],
+  ): Promise<number>;
+  ExportCatalogResult(criteria: CatalogCriteria): Promise<DownloadEntry>;
+  PreviewMove(r: MoveRequest): Promise<MovePreview>;
+  ApplyMove(r: MoveRequest, fingerprint: string): Promise<CatalogObject>;
+  GetMovements(kind: Kind, id: string, page: number): Promise<MovementPage>;
+  ListAttachments(
+    kind: Kind,
+    id: string,
+    page: number,
+  ): Promise<AttachmentPage>;
+  UploadAttachment(incoming: AttachmentUpload): Promise<Attachment>;
+  SaveInstruction(
+    kind: Kind,
+    id: string,
+    attachmentId: string,
+    version: number,
+    instruction: Instruction,
+  ): Promise<Attachment>;
+  InstructionTemplate(
+    kind: Kind,
+    id: string,
+    template: string,
+  ): Promise<Instruction>;
+  DeleteAttachment(id: string, version: number): Promise<void>;
+  DownloadAttachment(id: string): Promise<DownloadEntry>;
+  GetPolicyPage(query: string, page: number): Promise<PolicyPage>;
+
   GetWorkspace(): Promise<Workspace>;
   PreviewExcelPolicies(
     token: string,
@@ -537,4 +572,133 @@ export interface Workspace {
   lookups: Lookups;
   favorites: CatalogObject[];
   policies: Policy[];
+}
+
+export interface CatalogCounts {
+  servers: number;
+  instances: number;
+  databases: number;
+}
+export interface ChildCounts {
+  instances: number;
+  databases: number;
+  oracle: number;
+}
+export interface CatalogPage {
+  items: CatalogObject[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: CatalogCounts;
+  children: Record<string, ChildCounts>;
+}
+export interface CatalogBrowseRequest {
+  criteria: CatalogCriteria;
+  parentKind: "" | "server" | "instance" | "oracle";
+  parentId: string;
+  page: number;
+}
+export interface CatalogWorkspace {
+  root: CatalogPage;
+  lookups: Lookups;
+  favorites: CatalogObject[];
+}
+export interface ObjectContext {
+  object: CatalogObject;
+  catalog: Catalog;
+  policies: Policy[];
+  serverPage: number;
+  branchPages: Record<string, number>;
+  path: string;
+}
+export interface ObjectOption {
+  object: CatalogObject;
+  path: string;
+}
+export interface ObjectOptions {
+  items: ObjectOption[];
+  total: number;
+  page: number;
+}
+export interface Instruction {
+  title: string;
+  template: string;
+  purpose: string;
+  prerequisites: string;
+  steps: string;
+  verification: string;
+  rollback: string;
+  notes: string;
+}
+export interface Attachment {
+  id: string;
+  kind: Kind;
+  objectId: string;
+  name: string;
+  description: string;
+  fileName: string;
+  mime: string;
+  size: number;
+  sha256: string;
+  version: number;
+  actor: string;
+  updatedAt: string;
+  instruction: Instruction | null;
+}
+export interface AttachmentPage {
+  items: Attachment[];
+  total: number;
+  page: number;
+}
+export interface AttachmentUpload {
+  kind: Kind;
+  objectId: string;
+  name: string;
+  description: string;
+  fileName: string;
+  data: string;
+}
+export interface MoveRequest {
+  kind: Kind;
+  id: string;
+  version: number;
+  parentId: string;
+  parentVersion: number;
+  reason: string;
+}
+export interface MovePreview {
+  fromDBMS: string;
+  toDBMS: string;
+  object: CatalogObject;
+  destination: CatalogObject;
+  fromPath: string;
+  toPath: string;
+  fromPolicy: Policy | null;
+  toPolicy: Policy | null;
+  databases: number;
+  attachments: number;
+  fingerprint: string;
+  conflicts: string[];
+}
+export interface Movement {
+  id: number;
+  fromPath: string;
+  toPath: string;
+  reason: string;
+  version: number;
+  actor: string;
+  createdAt: string;
+  fromPolicy: Policy | null;
+  toPolicy: Policy | null;
+}
+export interface MovementPage {
+  items: Movement[];
+  total: number;
+  page: number;
+}
+export interface PolicyPage {
+  items: Policy[];
+  paths: Record<string, string>;
+  total: number;
+  page: number;
 }

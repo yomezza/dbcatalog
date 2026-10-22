@@ -54,7 +54,7 @@ func (w catalogWriter) saveObject(ctx context.Context, o Object, mode writeMode)
 	if o.ID != "" && !recreate {
 		action = "update"
 		var raw []byte
-		if err = tx.QueryRow(ctx, "SELECT to_jsonb(t) FROM "+t+" t WHERE id=$1 FOR UPDATE", o.ID).Scan(&raw); err != nil {
+		if err = tx.QueryRow(ctx, "SELECT (to_jsonb(t)-'search_text') FROM "+t+" t WHERE id=$1 FOR UPDATE", o.ID).Scan(&raw); err != nil {
 			return o, errors.New("Объект не найден")
 		}
 		old, e := decodeObject(raw, o.Kind)
@@ -123,5 +123,17 @@ func (w catalogWriter) saveObject(ctx context.Context, o Object, mode writeMode)
 		return o, errors.New(database.PublicError(err))
 	}
 
+	if !creating && o.Kind != "server" && (previous.ParentID != o.ParentID || (previous.DBMS == "Oracle Database") != (o.DBMS == "Oracle Database")) {
+		reason := w.moveReason
+		if reason == "" {
+			reason = "Изменение родителя в карточке"
+			if restore {
+				reason = "Возврат к сохранённой версии"
+			}
+		}
+		if err = recordMovement(ctx, tx, s.user.ID, previous, o, reason); err != nil {
+			return o, err
+		}
+	}
 	return o, nil
 }

@@ -60,7 +60,7 @@ func (s *Service) buildBulk(ctx context.Context, tx pgx.Tx, refs []ObjectRef, pa
 	if err != nil {
 		return out, err
 	}
-	rows, err := tx.Query(ctx, `SELECT to_jsonb(d) FROM databases d WHERE id=ANY($1::uuid[]) ORDER BY id`, ids)
+	rows, err := tx.Query(ctx, `SELECT (to_jsonb(d)-'search_text') FROM databases d WHERE id=ANY($1::uuid[]) ORDER BY id`, ids)
 	if err != nil {
 		return out, importDatabaseError(err)
 	}

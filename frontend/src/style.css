@@ -1449,3 +1449,94 @@ html {
   overflow-wrap: anywhere;
   max-width: 450px;
 }
+
+.virtual-tree {
+  height: 560px;
+  max-height: 65vh;
+  min-height: 260px;
+  overflow: auto;
+  position: relative;
+  border-top: 1px solid #e7edf2;
+}
+.virtual-tree-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 240px;
+}
+.virtual-tree-row .tree-node {
+  min-width: 0;
+  flex: 1;
+  height: 48px;
+  overflow: hidden;
+}
+.virtual-tree-row .tree-node > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.virtual-tree-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tree-toggle-slot {
+  width: 26px;
+  flex: 0 0 26px;
+}
+.branch-pages,
+.picker-pages {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.branch-pages button,
+.picker-pages button {
+  padding: 4px 10px;
+}
+.object-picker {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.object-picker select {
+  width: 100%;
+  max-width: 100%;
+}
+.context-menu {
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+}
+
+.document-dialog > .modal-heading {
+  position: sticky;
+  top: -30px;
+  background: white;
+  z-index: 2;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5edf2;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  overflow: hidden;
+}
+.shell {
+  height: calc(100vh - 36px);
+  min-height: 0;
+}
+.shell > main {
+  min-height: 0;
+  overflow: auto;
+}
+.shell > aside {
+  height: 100%;
+  overflow: auto;
+}

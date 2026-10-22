@@ -1,7 +1,9 @@
-import { matchesSearch } from "./search";
-import { objectPath } from "./objectPath";
-import { useState } from "react";
+import { ObjectPicker } from "./ui/ObjectPicker";
+import { PageNavigation } from "./ui/PageNavigation";
+import { useEffect, useState } from "react";
 import {
+  api,
+  type PolicyPage,
   type Catalog,
   type CatalogObject,
   type Policy,
@@ -85,8 +87,7 @@ export function BackupCard({
   );
 }
 export function PoliciesPanel({
-  catalog,
-  policies,
+  revision,
   busy,
   canEdit,
   canDelete,
@@ -96,8 +97,7 @@ export function PoliciesPanel({
   onHistory,
   onVersions,
 }: {
-  catalog: Catalog;
-  policies: Policy[];
+  revision: number;
   busy: boolean;
   canEdit: boolean;
   canDelete: boolean;
@@ -107,27 +107,37 @@ export function PoliciesPanel({
   onHistory: (p: Policy) => void;
   onVersions: (p: Policy) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const target = (p: Policy) => {
-    const object = (
-      p.kind === "instance" ? catalog.instances : catalog.databases
-    ).find((o) => o.id === p.objectId);
-    return object ? objectPath(object, catalog) : "Объект не загружен";
-  };
-  const filtered = policies.filter((p) =>
-    matchesSearch(
-      [
-        p.name,
-        target(p),
-        p.backupType,
-        p.scheduler,
-        p.schedule,
-        p.storage,
-        p.enabled ? "Включен" : "Отключен",
-      ],
-      query,
-    ),
-  );
+  const [query, setQuery] = useState(""),
+    [page, setPage] = useState(0),
+    [data, setData] = useState<PolicyPage | null>(null),
+    [loadError, setLoadError] = useState(""),
+    [loading, setLoading] = useState(false);
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    const timer = setTimeout(() => {
+      void api()
+        .GetPolicyPage(query, page)
+        .then((result) => {
+          if (live) {
+            setData(result);
+            setLoadError("");
+          }
+        })
+        .catch((e) => {
+          if (live) setLoadError(String(e));
+        })
+        .finally(() => {
+          if (live) setLoading(false);
+        });
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, page, revision]);
+  const filtered = data?.items ?? [];
+  const target = (p: Policy) => data?.paths[p.id] ?? p.objectId;
   return (
     <>
       <div className="page-heading">
@@ -155,9 +165,18 @@ export function PoliciesPanel({
           aria-label="Поиск политик"
           placeholder="Поиск по названию или объекту"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(0);
+          }}
         />
       </div>
+      {loadError && (
+        <p className="notice error" role="alert">
+          {loadError}
+        </p>
+      )}
+      {loading && <p role="status">Поиск политик по всему каталогу…</p>}
       <section className="table-panel">
         {filtered.length === 0 ? (
           <div className="empty">Политик пока нет.</div>
@@ -216,12 +235,19 @@ export function PoliciesPanel({
           </table>
         )}
       </section>
+      {data && (
+        <PageNavigation
+          page={data.page}
+          total={data.total}
+          busy={busy || loading}
+          onPage={setPage}
+        />
+      )}
     </>
   );
 }
 export function PolicyEditor({
   policy: p,
-  catalog,
   lookups,
   busy,
   error,
@@ -290,21 +316,13 @@ export function PolicyEditor({
                 </select>
               </Field>
               <Field label="Объект назначения *">
-                <select
-                  required
+                <ObjectPicker
+                  kind={p.kind}
                   value={p.objectId}
-                  onChange={(e) => set("objectId", e.target.value)}
-                >
-                  <option value="">Выберите объект</option>
-                  {(p.kind === "instance"
-                    ? catalog.instances
-                    : catalog.databases
-                  ).map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {objectPath(o, catalog)}
-                    </option>
-                  ))}
-                </select>
+                  label="Объект назначения *"
+                  disabled={busy}
+                  onChange={(option) => set("objectId", option.object.id)}
+                />
               </Field>
               <Field label="Тип РК">
                 <Choice

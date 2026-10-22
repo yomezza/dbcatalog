@@ -1,4 +1,4 @@
-// Package downloads keeps generated XLSX files in a managed, local, per-user workspace.
+// Package downloads keeps exports and attachment copies in a managed local per-user workspace.
 package downloads
 
 import (
@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -24,19 +25,38 @@ type Entry struct {
 	Available bool      `json:"available"`
 }
 
+var fileExtensions = map[string]bool{".xlsx": true, ".docx": true, ".pdf": true, ".txt": true, ".md": true, ".csv": true, ".png": true, ".jpg": true, ".jpeg": true, ".sql": true, ".ps1": true, ".json": true, ".zip": true}
+
+func Extension(name string) (string, error) {
+	ext := strings.ToLower(filepath.Ext(name))
+	if !fileExtensions[ext] {
+		return "", errors.New("Неподдерживаемый тип файла")
+	}
+	return ext, nil
+}
+
+func payloadName(id, name string) string {
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext == ".json" {
+		return id + ".file.json"
+	}
+	return id + ext
+}
+
 var idPattern = regexp.MustCompile(`^[a-f0-9-]{36}$`)
 
 type Store struct{ Root string }
 
 func (s Store) Add(name, category string, data []byte) (Entry, error) {
 	e := Entry{ID: security.ID(), Name: filepath.Base(name), Category: category, CreatedAt: time.Now().UTC(), Size: int64(len(data)), SHA256: fmt.Sprintf("%x", sha256.Sum256(data)), Available: true}
-	if filepath.Ext(e.Name) != ".xlsx" {
-		return Entry{}, errors.New("Поддерживаются только файлы XLSX")
+	_, err := Extension(e.Name)
+	if err != nil {
+		return Entry{}, err
 	}
 	if err := os.MkdirAll(s.Root, 0700); err != nil {
 		return Entry{}, err
 	}
-	path := filepath.Join(s.Root, e.ID+".xlsx")
+	path := filepath.Join(s.Root, payloadName(e.ID, e.Name))
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return Entry{}, err
 	}
@@ -71,7 +91,7 @@ func (s Store) List() ([]Entry, error) {
 		if err != nil {
 			return nil, errors.New("Не удалось прочитать историю загрузок")
 		}
-		info, err := os.Lstat(filepath.Join(s.Root, id+".xlsx"))
+		info, err := os.Lstat(filepath.Join(s.Root, payloadName(id, e.Name)))
 		e.Available = err == nil && info.Mode().IsRegular() && info.Size() == e.Size
 		result = append(result, e)
 	}
@@ -87,7 +107,7 @@ func (s Store) entry(id string) (Entry, error) {
 	if err != nil {
 		return e, errors.New("Файл отсутствует в истории загрузок")
 	}
-	if err = json.Unmarshal(raw, &e); err != nil || e.ID != id || filepath.Base(e.Name) != e.Name || filepath.Ext(e.Name) != ".xlsx" {
+	if err = json.Unmarshal(raw, &e); err != nil || e.ID != id || filepath.Base(e.Name) != e.Name || !fileExtensions[strings.ToLower(filepath.Ext(e.Name))] {
 		return e, errors.New("Повреждены сведения о загрузке")
 	}
 	return e, nil
@@ -97,7 +117,7 @@ func (s Store) Resolve(id string) (Entry, string, error) {
 	if err != nil {
 		return e, "", err
 	}
-	path := filepath.Join(s.Root, id+".xlsx")
+	path := filepath.Join(s.Root, payloadName(id, e.Name))
 	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() {
 		return e, "", errors.New("Сохранённый файл недоступен")

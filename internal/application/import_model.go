@@ -59,7 +59,7 @@ func loadIndex(ctx context.Context, tx pgx.Tx) (objectIndex, error) {
 	serverIDs, instanceIDs := map[string]string{}, map[string]string{}
 	for _, kind := range []string{"server", "instance", "database"} {
 		t, _ := table(kind)
-		rows, err := tx.Query(ctx, "SELECT to_jsonb(t) FROM "+t+" t ORDER BY id")
+		rows, err := tx.Query(ctx, "SELECT (to_jsonb(t)-'search_text') FROM "+t+" t ORDER BY id")
 		if err != nil {
 			return idx, err
 		}

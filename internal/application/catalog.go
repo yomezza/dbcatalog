@@ -75,7 +75,7 @@ func loadCatalog(ctx context.Context, tx pgx.Tx) (Catalog, error) {
 	// One repeatable-read snapshot avoids returning orphaned tree nodes during concurrent edits.
 	for _, kind := range []string{"server", "instance", "database"} {
 		t, _ := table(kind)
-		rows, err := tx.Query(ctx, "SELECT to_jsonb(t) FROM "+t+" t ORDER BY lower(name),id")
+		rows, err := tx.Query(ctx, "SELECT (to_jsonb(t)-'search_text') FROM "+t+" t ORDER BY lower(name),id")
 		if err != nil {
 			return result, errors.New(database.PublicError(err))
 		}

@@ -43,8 +43,8 @@ export function DownloadsPanel({
           <div className="eyebrow">ФАЙЛЫ НА ЭТОМ КОМПЬЮТЕРЕ</div>
           <h1>Загрузки</h1>
           <p className="muted">
-            Экспортированные файлы и исправленные копии импорта текущего
-            подключения и пользователя.
+            Экспорты, копии вложений, инструкции и исправленные файлы импорта
+            текущего подключения и пользователя.
           </p>
         </div>
         <button disabled={busy} onClick={() => void load()}>
@@ -94,7 +94,14 @@ export function DownloadsPanel({
                 <td>
                   <div className="actions">
                     <button
-                      disabled={busy || !e.available}
+                      disabled={
+                        busy || !e.available || /\.(ps1|sql)$/i.test(e.name)
+                      }
+                      title={
+                        /\.(ps1|sql)$/i.test(e.name)
+                          ? "Сохраните скрипт и откройте в выбранном редакторе"
+                          : undefined
+                      }
                       onClick={() => void action(e, "open")}
                     >
                       Открыть

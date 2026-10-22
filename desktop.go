@@ -7,6 +7,7 @@ import (
 	"github.com/yomezza/test/internal/downloads"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func (a *App) ListDownloads() ([]downloads.Entry, error)   { return a.service.ListDownloads() }
@@ -15,9 +16,12 @@ func (a *App) ExportImportPreview(token string) (downloads.Entry, error) {
 	return a.service.ExportImportPreview(token)
 }
 func (a *App) OpenDownload(id string) error {
-	_, path, err := a.service.ResolveDownload(id)
+	entry, path, err := a.service.ResolveDownload(id)
 	if err != nil {
 		return err
+	}
+	if ext := strings.ToLower(filepath.Ext(entry.Name)); ext == ".ps1" || ext == ".sql" {
+		return errors.New("Сохраните скрипт через «Сохранить как…» и откройте его в выбранном редакторе")
 	}
 	return openLocalFile(path, false)
 }
@@ -36,7 +40,11 @@ func (a *App) SaveDownloadAs(id string) (bool, error) {
 	if a.ctx == nil {
 		return false, errors.New("Окно приложения недоступно")
 	}
-	target, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Сохранить файл", DefaultFilename: e.Name, Filters: []runtime.FileFilter{{DisplayName: "Excel (*.xlsx)", Pattern: "*.xlsx"}}})
+	ext, err := downloads.Extension(e.Name)
+	if err != nil {
+		return false, err
+	}
+	target, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Сохранить файл", DefaultFilename: e.Name, Filters: []runtime.FileFilter{{DisplayName: "Файл (*" + ext + ")", Pattern: "*" + ext}}})
 	if err != nil {
 		return false, errors.New("Не удалось открыть окно сохранения")
 	}
@@ -44,10 +52,10 @@ func (a *App) SaveDownloadAs(id string) (bool, error) {
 		return false, nil
 	}
 	if filepath.Ext(target) == "" {
-		target += ".xlsx"
+		target += ext
 	}
-	if filepath.Ext(target) != ".xlsx" {
-		return false, errors.New("Выберите расширение .xlsx")
+	if !strings.EqualFold(filepath.Ext(target), ext) {
+		return false, errors.New("Выберите расширение " + ext)
 	}
 	if filepath.Clean(target) == filepath.Clean(path) {
 		return true, nil

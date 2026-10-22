@@ -31,7 +31,7 @@ func deletionObjects(ctx context.Context, tx pgx.Tx, kind, condition string, arg
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, "SELECT to_jsonb(t) FROM "+t+" t WHERE "+condition+" ORDER BY id", args...)
+	rows, err := tx.Query(ctx, "SELECT (to_jsonb(t)-'search_text') FROM "+t+" t WHERE "+condition+" ORDER BY id", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func loadDeletion(ctx context.Context, tx pgx.Tx, kind, id string, version int64
 			return plan, e
 		}
 		var raw []byte
-		if err = tx.QueryRow(ctx, "SELECT to_jsonb(t) FROM "+t+" t WHERE id=$1", id).Scan(&raw); err != nil {
+		if err = tx.QueryRow(ctx, "SELECT (to_jsonb(t)-'search_text') FROM "+t+" t WHERE id=$1", id).Scan(&raw); err != nil {
 			return plan, errors.New("Объект не найден")
 		}
 		root, e := decodeObject(raw, kind)

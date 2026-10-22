@@ -10,6 +10,9 @@ interface Props {
   onClose: () => void;
   onOpen: () => void;
   onConnect: () => void;
+  onAttachments: () => void;
+  onMove: () => void;
+  onMovements: () => void;
   onEdit: () => void;
   onAdd: () => void;
   onAddOracle: () => void;
@@ -50,7 +53,7 @@ export function ContextMenu(p: Props) {
       aria-label="Действия с объектом"
       style={{
         left: Math.max(8, Math.min(p.x, window.innerWidth - 270)),
-        top: Math.max(40, Math.min(p.y, window.innerHeight - 465)),
+        top: Math.max(40, Math.min(p.y, window.innerHeight - 580)),
       }}
       onKeyDown={(e) => {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -71,6 +74,21 @@ export function ContextMenu(p: Props) {
       <button role="menuitem" onClick={action(p.onOpen)}>
         Открыть карточку
       </button>
+      <button role="menuitem" onClick={action(p.onAttachments)}>
+        Вложения и инструкции
+      </button>
+      {p.object.kind !== "server" && (
+        <>
+          <button role="menuitem" onClick={action(p.onMovements)}>
+            История перемещений
+          </button>
+          {p.canEdit && (
+            <button role="menuitem" onClick={action(p.onMove)}>
+              Переместить…
+            </button>
+          )}
+        </>
+      )}
       <button role="menuitem" onClick={action(p.onConnect)}>
         Подключение к серверу
       </button>

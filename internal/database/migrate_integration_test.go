@@ -65,7 +65,7 @@ func TestMigrationIsolationRepeatabilityConcurrency(t *testing.T) {
 	}
 	for _, schema := range []string{a, b} {
 		var count int
-		if err := p.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{schema, "schema_migrations"}.Sanitize()).Scan(&count); err != nil || count != 8 {
+		if err := p.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{schema, "schema_migrations"}.Sanitize()).Scan(&count); err != nil || count != 9 {
 			t.Fatalf("ledger count %d: %v", count, err)
 		}
 	}
@@ -204,7 +204,7 @@ func TestWorkflowUpgradeBackfillsOnlyAbsentDeletedObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), "008_") {
+		if entry.Name() >= "008_" {
 			continue
 		}
 		name := "migrations/" + entry.Name()

@@ -75,6 +75,10 @@ export function DeletionDialog({
               />
             </label>
           )}
+          <p className="muted">
+            Вложения сохраняются в PostgreSQL и будут доступны после
+            восстановления объекта.
+          </p>
           {!total && <p>Каталог уже пуст.</p>}
           <div className="actions">
             <button type="button" disabled={busy} onClick={onClose}>

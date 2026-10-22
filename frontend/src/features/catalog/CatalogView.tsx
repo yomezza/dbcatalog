@@ -1,15 +1,12 @@
 import type { ReactNode } from "react";
-import { api, type Catalog, type Lookups, type CatalogObject } from "../../api";
-import { branchKeys, pageOf } from "../../catalog";
+import { api, type Lookups, type CatalogObject } from "../../api";
 import { Stat } from "../../components";
-import { CatalogTree } from "../../CatalogTree";
+import { RemoteCatalogTree } from "./RemoteCatalogTree";
 import { CatalogFilters } from "./CatalogFilters";
 import { BulkDialog } from "./BulkDialog";
-import { CatalogNode } from "./CatalogNode";
 import type { CatalogBrowser } from "./useCatalogBrowser";
 import type { AsyncTaskRunner } from "../../ui/types";
 interface Props {
-  catalog: Catalog;
   lookups: Lookups;
   browser: CatalogBrowser;
   busy: boolean;
@@ -25,7 +22,6 @@ interface Props {
   children: ReactNode;
 }
 export function CatalogView({
-  catalog,
   lookups,
   browser,
   busy,
@@ -46,20 +42,18 @@ export function CatalogView({
     setCriteria,
     setQuery,
     setPage,
-    expanded,
-    setExpanded,
-    toggleBranch,
+
     checked,
     setChecked,
     bulkOpen,
     setBulkOpen,
-    filtered,
+    root,
     currentPage,
     lastPage,
     hiddenCount,
     changeQuery,
   } = browser;
-  const matches = filtered.servers;
+  const counts = root.counts;
   return (
     <>
       <div className="page-heading">
@@ -80,9 +74,9 @@ export function CatalogView({
         </div>
       </div>
       <div className="stats">
-        <Stat label="Серверов" value={catalog.servers.length} />
-        <Stat label="Экземпляров СУБД" value={catalog.instances.length} />
-        <Stat label="Баз данных" value={catalog.databases.length} />
+        <Stat label="Серверов" value={counts.servers} />
+        <Stat label="Экземпляров СУБД" value={counts.instances} />
+        <Stat label="Баз данных" value={counts.databases} />
       </div>
       <CatalogFilters
         value={{ ...criteria, query }}
@@ -91,25 +85,25 @@ export function CatalogView({
           setQuery(f.query);
           setPage(0);
         }}
-        catalog={catalog}
         lookups={lookups}
         busy={busy}
         run={run}
       />
       <div className="selection-toolbar">
         <span>
-          БД в результате: {filtered.databases.length} · Выбрано: {checked.size}{" "}
-          (вне результата: {hiddenCount})
+          БД в результате: {counts.databases} · Выбрано: {checked.size} (вне
+          результата: {hiddenCount})
         </span>
         <button
-          disabled={busy || !filtered.databases.length}
+          disabled={busy || browser.loading || !counts.databases}
           onClick={() =>
-            setChecked(
-              new Map(
-                filtered.databases.map((d) => [
-                  d.id,
-                  { id: d.id, version: d.version },
-                ]),
+            void run(async () =>
+              setChecked(
+                new Map(
+                  (await api().SelectCatalogResult(browser.scope)).map(
+                    (ref) => [ref.id, ref],
+                  ),
+                ),
               ),
             )
           }
@@ -131,12 +125,10 @@ export function CatalogView({
           </button>
         )}
         <button
-          disabled={busy || !filtered.databases.length}
+          disabled={busy || browser.loading || !counts.databases}
           onClick={() =>
             void run(async () => {
-              const f = await api().ExportSelection(
-                filtered.databases.map((d) => d.id),
-              );
+              const f = await api().ExportCatalogResult(browser.scope);
               onMessage("Результат сохранён в Загрузки");
               await api().SaveDownloadAs(f.id);
             })
@@ -181,56 +173,48 @@ export function CatalogView({
           </div>
           <div className="tree-controls">
             <button
-              disabled={busy || !matches.length}
-              onClick={() => setExpanded(new Set(branchKeys(filtered)))}
+              disabled={busy || !root.items.length}
+              onClick={browser.expandAll}
             >
               Раскрыть все
             </button>
-            <button
-              disabled={busy || !expanded.size}
-              onClick={() => setExpanded(new Set())}
-            >
+            <button disabled={busy} onClick={browser.collapseAll}>
               Свернуть все
             </button>
           </div>
-          <div className="tree">
-            <CatalogTree
-              catalog={filtered}
-              servers={pageOf(matches, currentPage)}
-              expanded={expanded}
-              onToggle={toggleBranch}
-              renderNode={(o) => (
-                <CatalogNode
-                  object={o}
-                  selected={selectedId === o.id}
-                  busy={busy}
-                  checked={checked.has(o.id)}
-                  onSelect={onSelect}
-                  onToggle={toggleBranch}
-                  onContext={onContext}
-                  onCheck={(o, value) =>
-                    setChecked((old) => {
-                      const next = new Map(old);
-                      if (value)
-                        next.set(o.id, { id: o.id, version: o.version });
-                      else next.delete(o.id);
-                      return next;
-                    })
-                  }
-                />
-              )}
+          {browser.error && (
+            <p className="notice error" role="alert">
+              {browser.error}
+            </p>
+          )}
+          {browser.loading ? (
+            <p className="empty" role="status">
+              Поиск по всему каталогу…
+            </p>
+          ) : (
+            <RemoteCatalogTree
+              browser={browser}
+              selectedId={selectedId}
+              busy={busy}
+              onSelect={onSelect}
+              onContext={onContext}
             />
-            {matches.length === 0 && (
-              <div className="empty">
-                {query
-                  ? "Совпадений не найдено"
-                  : "Каталог пока пуст. Добавьте первый сервер."}
-              </div>
-            )}
-          </div>
+          )}
+          {!browser.loading && !root.total && (
+            <div className="empty">
+              {!browser.scope.query &&
+              !browser.scope.dbms &&
+              !browser.scope.status &&
+              !browser.scope.environment &&
+              !browser.scope.responsible &&
+              (!browser.scope.policy || browser.scope.policy === "any")
+                ? "Каталог пока пуст. Добавьте первый сервер."
+                : "Совпадений не найдено"}
+            </div>
+          )}
           <div className="pagination">
             <button
-              disabled={currentPage === 0}
+              disabled={busy || browser.loading || currentPage === 0}
               onClick={() => setPage(currentPage - 1)}
             >
               ←
@@ -239,7 +223,7 @@ export function CatalogView({
               Страница {currentPage + 1} из {lastPage + 1}
             </span>
             <button
-              disabled={currentPage === lastPage}
+              disabled={busy || browser.loading || currentPage === lastPage}
               onClick={() => setPage(currentPage + 1)}
             >
               →

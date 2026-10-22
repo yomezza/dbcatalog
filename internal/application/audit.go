@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var actionLabels = map[string]string{"bulk_update": "Массовое редактирование БД", "version_restore": "Возврат к версии", "oracle_migration": "Переход Oracle на прямое размещение", "create": "Создание", "update": "Изменение", "delete": "Удаление", "restore": "Восстановление", "login": "Вход", "login_failed": "Неудачный вход", "register": "Регистрация", "user_update": "Изменение пользователя", "favorite_add": "Добавление в избранное", "favorite_remove": "Удаление из избранного", "excel_import": "Импорт Excel", "excel_export": "Экспорт Excel", "cascade_delete": "Удаление ветви каталога", "catalog_clear": "Очистка каталога"}
+var actionLabels = map[string]string{"attachment_add": "Добавление вложения", "attachment_delete": "Удаление вложения", "instruction_update": "Обновление инструкции", "object_move": "Перемещение объекта", "bulk_update": "Массовое редактирование БД", "version_restore": "Возврат к версии", "oracle_migration": "Переход Oracle на прямое размещение", "create": "Создание", "update": "Изменение", "delete": "Удаление", "restore": "Восстановление", "login": "Вход", "login_failed": "Неудачный вход", "register": "Регистрация", "user_update": "Изменение пользователя", "favorite_add": "Добавление в избранное", "favorite_remove": "Удаление из избранного", "excel_import": "Импорт Excel", "excel_export": "Экспорт Excel", "cascade_delete": "Удаление ветви каталога", "catalog_clear": "Очистка каталога"}
 
 type AuditFilter struct {
 	Query    string `json:"query"`

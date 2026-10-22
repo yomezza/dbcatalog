@@ -43,7 +43,7 @@ jobs:
       - run: wails build -clean -platform windows/amd64
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
-      - name: Build installers and check upgrade from 0.7.0
+      - name: Build installers and check upgrade from 0.7.1
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -53,14 +53,14 @@ jobs:
           if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'Invalid WebView2 installer signature' }
           $iscc = (Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe" | Select-Object -First 1).FullName
           if (!$iscc) { throw 'Inno Setup not found' }
-          Expand-Archive downloads/CatalogDB-windows-x64-0.7.0.zip -DestinationPath build/legacy
+          Expand-Archive downloads/CatalogDB-windows-x64-0.7.1.zip -DestinationPath build/legacy
           $legacy = (Get-ChildItem build/legacy -Filter CatalogDB.exe -Recurse | Select-Object -First 1).FullName
           if (!$legacy) { throw 'Previous release EXE missing' }
-          & $iscc '/DAppVersion=0.7.0' "/DAppExe=$legacy" packaging/inno_setup/catalogdb.iss
+          & $iscc '/DAppVersion=0.7.1' "/DAppExe=$legacy" packaging/inno_setup/catalogdb.iss
           if ($LASTEXITCODE -ne 0) { throw 'Old installer failed' }
           & $iscc packaging/inno_setup/catalogdb.iss
           if ($LASTEXITCODE -ne 0) { throw 'New installer failed' }
-          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.7.0.exe -NewInstaller build/bin/CatalogDB_Setup_0.7.1.exe -ExpectedExe build/bin/CatalogDB.exe
+          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.7.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.8.0.exe -ExpectedExe build/bin/CatalogDB.exe
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -71,4 +71,4 @@ jobs:
           name: CatalogDB-windows-x64
           path: |
             build/bin/CatalogDB.exe
-            build/bin/CatalogDB_Setup_0.7.1.exe
+            build/bin/CatalogDB_Setup_0.8.0.exe

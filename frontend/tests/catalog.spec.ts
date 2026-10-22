@@ -1,7 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { newObject } from "../src/api";
+import { fixtureCatalogOperation } from "./catalog-fixture";
 
 async function login(page: Page, role = "admin", expand = true) {
+  try {
+    await page.exposeFunction("__catalogFixture", fixtureCatalogOperation);
+  } catch (e) {
+    if (!String(e).includes("already")) throw e;
+  }
+
   const server = {
     ...newObject("server"),
     id: "s1",
@@ -123,6 +130,52 @@ async function login(page: Page, role = "admin", expand = true) {
           },
         },
       };
+      const backend = window.go!.main.App;
+      const operation = async (op: string, request: unknown) =>
+        (window as any).__catalogFixture(
+          op,
+          request,
+          await backend.GetCatalog(),
+          await backend.ListPolicies(),
+        );
+      Object.assign(backend, {
+        BrowseCatalog: async (request: unknown) => operation("browse", request),
+        GetCatalogWorkspace: async () => ({
+          root: await backend.BrowseCatalog({
+            criteria: {
+              query: "",
+              dbms: "",
+              status: "",
+              environment: "",
+              responsible: "",
+              policy: "",
+            },
+            parentKind: "",
+            parentId: "",
+            page: 0,
+          }),
+          lookups: await backend.GetLookups(),
+          favorites: await backend.ListFavorites(),
+        }),
+        GetObjectContext: async (kind: string, id: string) =>
+          operation("context", { kind, id }),
+        FindObjects: async (kind: string, query: string, page: number) =>
+          operation("options", { kind, query, page }),
+        SelectCatalogResult: async (criteria: unknown) =>
+          operation("select", { criteria }),
+        CountSelectionOutside: async (criteria: unknown, ids: string[]) =>
+          operation("outside", { criteria, ids }),
+        ExportCatalogResult: async (criteria: unknown) =>
+          backend.ExportSelection(
+            (await operation("select", { criteria })).map(
+              (r: { id: string }) => r.id,
+            ),
+          ),
+        GetPolicyPage: async (query: string, page: number) =>
+          operation("policies", { query, page }),
+        ListAttachments: async () => ({ items: [], page: 0, total: 0 }),
+        GetMovements: async () => ({ items: [], page: 0, total: 0 }),
+      });
     },
     { server, instance, db, role },
   );
@@ -696,7 +749,9 @@ test("download history opens files, reveals folders and saves a copy", async ({
   await page
     .getByRole("button", { name: "Сохранить как…", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText("Копия файла сохранена");
+  await expect(page.locator(".notice[role=status]")).toHaveText(
+    "Копия файла сохранена",
+  );
   expect(
     await page.evaluate(
       () =>
@@ -789,7 +844,9 @@ test("an import error can be corrected and revalidated before confirmation", asy
   await page
     .getByRole("button", { name: "Подтвердить импорт 1 строк", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("Импорт завершён");
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "Импорт завершён",
+  );
 });
 test("notification inbox marks only selected events and navigates to a collapsed object", async ({
   page,
@@ -1228,7 +1285,7 @@ test("import rows can be excluded, returned and bulk excluded before applying", 
   await page
     .getByRole("button", { name: "Подтвердить импорт 1 строк", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText(
+  await expect(page.locator(".notice[role=status]")).toContainText(
     "Исключено перед импортом: 2",
   );
 });
@@ -1730,7 +1787,9 @@ test("policy import requires explicit missing parameters and a separate confirma
     })
     .check();
   await confirm.click();
-  await expect(page.getByRole("status")).toContainText("Политик создано: 1");
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "Политик создано: 1",
+  );
 });
 
 test("opening a favorite clears a filter that hides its branch", async ({
@@ -1851,4 +1910,397 @@ test("workspace refresh updates the selected card and invalidates selected datab
   await expect(
     page.getByRole("button", { name: "Массовое редактирование", exact: true }),
   ).toBeDisabled();
+});
+
+test("attachments upload and editable instruction templates create shared documents and downloads", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const rows: any[] = [];
+    let sequence = 0;
+    const instruction = {
+      title: "Восстановление payroll",
+      template: "restore",
+      purpose: "Восстановление",
+      prerequisites: "Проверить копию",
+      steps: "1. Выбрать копию",
+      verification: "Проверить результат",
+      rollback: "Указать откат",
+      notes: "",
+    };
+    Object.assign(window.go!.main.App, {
+      ListAttachments: async () => ({
+        items: rows,
+        total: rows.length,
+        page: 0,
+      }),
+      InstructionTemplate: async () => ({ ...instruction }),
+      SaveInstruction: async (
+        kind: string,
+        objectId: string,
+        id: string,
+        version: number,
+        incoming: any,
+      ) => {
+        if (
+          kind !== "database" ||
+          objectId !== "d1" ||
+          !incoming.steps.includes("Проверить журнал")
+        )
+          throw new Error("Неверная инструкция");
+        const result = {
+          id: id || "doc" + ++sequence,
+          kind,
+          objectId,
+          name: incoming.title,
+          description: "Инструкция",
+          fileName: "instruction.docx",
+          mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          size: 1200,
+          sha256: "digest",
+          version: version + 1,
+          actor: "admin",
+          updatedAt: "2026-10-22T10:00:00Z",
+          instruction: incoming,
+        };
+        rows.push(result);
+        return result;
+      },
+      UploadAttachment: async (incoming: any) => {
+        if (incoming.fileName !== "guide.pdf" || !incoming.data)
+          throw new Error("Неверный файл");
+        const result = {
+          id: "upload",
+          kind: incoming.kind,
+          objectId: incoming.objectId,
+          name: incoming.name,
+          description: incoming.description,
+          fileName: incoming.fileName,
+          mime: "application/pdf",
+          size: 20,
+          sha256: "digest",
+          version: 1,
+          actor: "admin",
+          updatedAt: "2026-10-22T10:00:00Z",
+          instruction: null,
+        };
+        rows.push(result);
+        return result;
+      },
+      DownloadAttachment: async (id: string) => ({
+        id: "download-" + id,
+        name: "instruction.docx",
+        category: "Вложение объекта",
+        available: true,
+        size: 1200,
+      }),
+      SaveDownloadAs: async (id: string) => {
+        (window as any).__documentDownload = id;
+        return true;
+      },
+      DeleteAttachment: async (id: string, version: number) => {
+        if (version !== 1) throw new Error("Неверная версия");
+        rows.splice(
+          rows.findIndex((a) => a.id === id),
+          1,
+        );
+      },
+    });
+  });
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "payroll" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Вложения и инструкции", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Вложения и инструкции: payroll",
+    exact: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Восстановление", exact: true })
+    .click();
+  const editor = page.getByRole("dialog", {
+    name: "Новая инструкция",
+    exact: true,
+  });
+  await editor
+    .getByLabel("Порядок выполнения", { exact: true })
+    .fill("1. Выбрать копию\n2. Проверить журнал");
+  await editor
+    .getByRole("button", { name: "Сохранить инструкцию Word", exact: true })
+    .click();
+  await expect(editor).toHaveCount(0);
+  await expect(
+    dialog.getByRole("cell").filter({ hasText: "Восстановление payroll" }),
+  ).toBeVisible();
+  await dialog.getByText("Добавить файл", { exact: true }).click();
+  await dialog
+    .getByLabel("Файл", { exact: true })
+    .setInputFiles({
+      name: "guide.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4 synthetic"),
+    });
+  await dialog
+    .getByRole("button", { name: "Загрузить вложение", exact: true })
+    .click();
+  const row = dialog
+    .getByRole("row")
+    .filter({ hasText: "Восстановление payroll" });
+  await row.getByRole("button", { name: "Скачать", exact: true }).click();
+  await expect(dialog.locator(".notice[role=status]")).toContainText(
+    "Файл сохранён в Загрузки",
+  );
+  await page.screenshot({
+    path: "/tmp/catalogdb-attachments-080.png",
+    fullPage: true,
+  });
+  await dialog
+    .getByRole("row")
+    .filter({ hasText: "guide.pdf" })
+    .getByRole("button", { name: "Удалить вложение", exact: true })
+    .click();
+  const confirm = page.getByRole("dialog", {
+    name: "Удаление вложения",
+    exact: true,
+  });
+  await confirm
+    .getByRole("button", { name: "Удалить файл окончательно", exact: true })
+    .click();
+  await expect(confirm).toHaveCount(0);
+  await expect(
+    dialog.getByRole("row").filter({ hasText: "guide.pdf" }),
+  ).toHaveCount(0);
+});
+
+test("a viewer can read attachments and movement history but cannot upload or move", async ({
+  page,
+}) => {
+  await login(page, "viewer");
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "payroll" })
+    .click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "Переместить…", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("menuitem", { name: "Вложения и инструкции", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Вложения и инструкции: payroll",
+    exact: true,
+  });
+  await expect(
+    dialog.getByRole("button", { name: "Загрузить вложение", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Восстановление", exact: true }),
+  ).toHaveCount(0);
+  await dialog
+    .getByRole("button", { name: "Закрыть окно", exact: true })
+    .click();
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "payroll" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "История перемещений", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", {
+      name: "История перемещений: payroll",
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
+test("move preview shows the policy change and records the destination after confirmation", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(async () => {
+    const api = window.go!.main.App,
+      catalog = await api.GetCatalog();
+    catalog.instances.push({
+      ...catalog.instances[0],
+      id: "i2",
+      name: "pg-dest",
+    });
+    let moved = false;
+    const policy = {
+      id: "p2",
+      kind: "instance",
+      objectId: "i2",
+      name: "Новая политика",
+      enabled: false,
+      backupType: "Локальное",
+      scheduler: "cron",
+      schedule: "",
+      storage: "/backup",
+      retentionDays: 7,
+      description: "",
+      version: 1,
+    };
+    Object.assign(api, {
+      PreviewMove: async (r: any) => ({
+        object: catalog.databases[0],
+        destination: catalog.instances[1],
+        fromPath: "host-a / pg-main / payroll",
+        toPath: "host-a / pg-dest / payroll",
+        fromDBMS: "PostgreSQL",
+        toDBMS: "PostgreSQL",
+        fromPolicy: null,
+        toPolicy: policy,
+        databases: 0,
+        attachments: 2,
+        fingerprint: r.reason,
+        conflicts: [],
+      }),
+      ApplyMove: async (r: any, fingerprint: string) => {
+        if (r.reason !== fingerprint || r.parentId !== "i2")
+          throw new Error("Устаревшее подтверждение");
+        moved = true;
+        catalog.databases[0] = {
+          ...catalog.databases[0],
+          parentId: "i2",
+          version: 2,
+        };
+        return catalog.databases[0];
+      },
+      GetMovements: async () => ({
+        total: moved ? 1 : 0,
+        page: 0,
+        items: moved
+          ? [
+              {
+                id: 1,
+                fromPath: "host-a / pg-main / payroll",
+                toPath: "host-a / pg-dest / payroll",
+                reason: "Переезд",
+                version: 2,
+                actor: "admin",
+                createdAt: "2026-10-22T10:00:00Z",
+                fromPolicy: null,
+                toPolicy: policy,
+              },
+            ]
+          : [],
+      }),
+    });
+  });
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "payroll" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Переместить…", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Переместить: payroll",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "Новый экземпляр", exact: true })
+    .selectOption("i2");
+  await dialog
+    .getByLabel("Причина перемещения", { exact: true })
+    .fill("Переезд");
+  await dialog
+    .getByRole("button", { name: "Предпросмотр перемещения", exact: true })
+    .click();
+  await expect(dialog).toContainText("Новая политика");
+  await dialog
+    .getByLabel("Причина перемещения", { exact: true })
+    .fill("Уточнённый переезд");
+  await expect(
+    dialog.getByRole("button", {
+      name: "Подтвердить перемещение",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await dialog
+    .getByRole("button", { name: "Предпросмотр перемещения", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Подтвердить перемещение", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".object-card .object-path")).toContainText(
+    "pg-dest",
+  );
+  await page
+    .getByRole("button", { name: "История перемещений", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", {
+      name: "История перемещений: payroll",
+      exact: true,
+    }),
+  ).toContainText("host-a / pg-main / payroll");
+});
+
+test("large catalog virtualizes rows and searches and exports records outside loaded pages", async ({
+  page,
+}) => {
+  await login(page, "viewer", false);
+  await page.evaluate(async () => {
+    const api = window.go!.main.App,
+      c = await api.GetCatalog();
+    const servers = Array.from({ length: 12 }, (_, i) => ({
+      ...c.servers[0],
+      id: "s" + i,
+      name: "server-" + String(i).padStart(2, "0"),
+    }));
+    const instances = [{ ...c.instances[0], id: "big-i", parentId: "s11" }];
+    const databases = Array.from({ length: 1500 }, (_, i) => ({
+      ...c.databases[0],
+      id: "big-d" + i,
+      parentId: "big-i",
+      name: "db-" + String(i).padStart(4, "0"),
+      purpose: i === 1499 ? "needle-unloaded" : "ordinary",
+    }));
+    Object.assign(api, {
+      GetCatalog: async () => ({ servers, instances, databases }),
+      ExportSelection: async (ids: string[]) => {
+        if (ids.join() !== "big-d1499")
+          throw new Error("Неверный результат глобального поиска");
+        return { id: "global-result", name: "result.xlsx" };
+      },
+      SaveDownloadAs: async () => true,
+    });
+  });
+  await page.getByRole("button", { name: "↻ Обновить", exact: true }).click();
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "db-1499" }),
+  ).toHaveCount(0);
+  await page
+    .locator(".tree-panel > .pagination")
+    .getByRole("button", { name: "→", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Раскрыть все", exact: true }).click();
+  const tree = page.getByLabel("Дерево каталога", { exact: true });
+  await expect(tree).toHaveAttribute("data-loaded-rows", /10[0-9]|11[0-9]/);
+  expect(await page.locator(".virtual-tree-row").count()).toBeLessThan(35);
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "db-1499" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Поиск в каталоге", exact: true })
+    .fill("server-11 | needle-unloaded");
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "db-1499" }),
+  ).toBeVisible();
+  await expect(page.locator(".selection-toolbar")).toContainText(
+    "БД в результате: 1",
+  );
+  await page
+    .getByRole("button", { name: "Экспорт результата", exact: true })
+    .click();
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "Результат сохранён в Загрузки",
+  );
 });

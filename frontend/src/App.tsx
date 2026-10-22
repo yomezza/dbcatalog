@@ -2,12 +2,17 @@ import { CatalogView } from "./features/catalog/CatalogView";
 import { useCatalogBrowser } from "./features/catalog/useCatalogBrowser";
 import { QualityPanel } from "./features/quality/QualityPanel";
 import { DeletedPanel } from "./features/deleted/DeletedPanel";
-import { indexCatalog, indexedObject } from "./catalog/indexes";
+import { AttachmentsDialog } from "./features/documents/AttachmentsDialog";
+import {
+  MoveDialog,
+  MovementsDialog,
+} from "./features/movements/MovementsDialog";
+import type { CatalogPage, Kind } from "./api";
 import { emptyCriteria } from "./catalog";
 import { HistoryDialog } from "./HistoryDialog";
 import { VersionsDialog } from "./VersionsDialog";
 import type { RecordTarget } from "./api";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   api,
   emptyCatalog,
@@ -86,14 +91,27 @@ export function App() {
   const [policies, setPolicies] = useState<Policy[]>([]),
     [policyEditor, setPolicyEditor] = useState<Policy | null>(null),
     [policyDelete, setPolicyDelete] = useState<Policy | null>(null);
-  const browser = useCatalogBrowser(catalog, policies);
+  const [rootSeed, setRootSeed] = useState<CatalogPage | null>(null),
+    [catalogRevision, setCatalogRevision] = useState(0);
+  const browser = useCatalogBrowser(rootSeed, catalogRevision);
+  const selectionRequest = useRef(0);
+  const [attachmentObject, setAttachmentObject] =
+      useState<CatalogObject | null>(null),
+    [moveObject, setMoveObject] = useState<CatalogObject | null>(null),
+    [movementObject, setMovementObject] = useState<CatalogObject | null>(null);
   function openPolicy(o: CatalogObject) {
     if (o.kind === "server") return;
-    setError("");
-    setPolicyEditor(
-      policies.find((p) => p.kind === o.kind && p.objectId === o.id) ??
-        newPolicy(o.kind, o.id),
-    );
+    const kind = o.kind;
+    void run(async () => {
+      const context = await api().GetObjectContext(o.kind, o.id);
+      setPolicies(context.policies);
+      setCatalog(context.catalog);
+      setPolicyEditor(
+        context.policies.find(
+          (p) => p.kind === o.kind && p.objectId === o.id,
+        ) ?? newPolicy(kind, o.id),
+      );
+    });
   }
   const [lookups, setLookups] = useState<Lookups>({});
   const [favorites, setFavorites] = useState<CatalogObject[]>([]);
@@ -113,10 +131,22 @@ export function App() {
     e.preventDefault();
     showContext(o, e.clientX, e.clientY);
   }
-  function goTo(o: CatalogObject, source: Catalog = catalog) {
-    choose(o);
-    setView("catalog");
-    browser.reveal(o, source);
+
+  async function showObject(kind: Kind, id: string, reveal: boolean) {
+    const request = ++selectionRequest.current;
+    const context = await api().GetObjectContext(kind, id);
+    if (request !== selectionRequest.current) return;
+    setSelected(context.object);
+    setCatalog(context.catalog);
+    setPolicies(context.policies);
+    if (reveal) {
+      setView("catalog");
+      browser.reveal(context);
+    }
+  }
+  function goTo(o: CatalogObject) {
+    setRecordWindow(null);
+    void run(() => showObject(o.kind, o.id, true));
   }
   async function navigateNotification(n: Notification) {
     if (n.entity === "user" && status.user?.role === "admin") {
@@ -133,13 +163,20 @@ export function App() {
       setMessage(n.body);
       return;
     }
-    const c = await loadCatalog();
-    const o = indexedObject(indexCatalog(c), n.entity, n.objectId);
-    if (!o) {
-      setMessage("Связанный объект удалён или недоступен");
+    if (
+      n.entity !== "server" &&
+      n.entity !== "instance" &&
+      n.entity !== "database"
+    ) {
+      setMessage("Связанный объект недоступен");
       return;
     }
-    goTo(o, c);
+    await loadCatalog();
+    try {
+      await showObject(n.entity, n.objectId, true);
+    } catch {
+      setMessage("Связанный объект удалён или недоступен");
+    }
   }
   async function toggleFavorite(o: CatalogObject) {
     await api().SetFavorite(o.kind, o.id, !isFavorite(o));
@@ -208,8 +245,12 @@ export function App() {
   }, []);
   useEffect(() => {
     setRecordWindow(null);
+    setAttachmentObject(null);
+    setMoveObject(null);
+    setMovementObject(null);
     if (!status.user) {
       setUnread(0);
+      setRootSeed(null);
       browser.reset();
       return;
     }
@@ -229,29 +270,32 @@ export function App() {
       window.clearInterval(timer);
     };
   }, [status.user?.id, status.schema]);
+
   async function loadCatalog() {
-    const {
-      catalog: result,
-      lookups: refs,
-      favorites: favs,
-      policies: ps,
-    } = await api().GetWorkspace();
-    setPolicies(ps);
-    setLookups(refs);
-    setFavorites(favs);
-    setCatalog(result);
-    setSelected((current) => {
-      if (!current) return null;
-      const objects =
-        current.kind === "server"
-          ? result.servers
-          : current.kind === "instance"
-            ? result.instances
-            : result.databases;
-      return objects.find((o) => o.id === current.id) ?? null;
-    });
+    const workspace = await api().GetCatalogWorkspace();
+    setRootSeed(workspace.root);
+    setLookups(workspace.lookups);
+    setFavorites(workspace.favorites);
+    setCatalogRevision((v) => v + 1);
     browser.clearSelection();
-    return result;
+    if (selected) {
+      try {
+        await showObject(selected.kind, selected.id, false);
+      } catch {
+        setSelected(null);
+        setPolicies([]);
+      }
+    } else
+      setCatalog({
+        servers: workspace.root.items,
+        instances: [],
+        databases: [],
+      });
+    return {
+      servers: workspace.root.items,
+      instances: [],
+      databases: [],
+    } as Catalog;
   }
   async function refreshCatalog() {
     await loadCatalog();
@@ -266,9 +310,23 @@ export function App() {
   }
   const canEdit =
     status.user?.role === "admin" || status.user?.role === "editor";
+
   function choose(o: CatalogObject) {
     setSelected(o);
     setRecordWindow(null);
+    const request = ++selectionRequest.current;
+    void api()
+      .GetObjectContext(o.kind, o.id)
+      .then((c) => {
+        if (request === selectionRequest.current) {
+          setSelected(c.object);
+          setCatalog(c.catalog);
+          setPolicies(c.policies);
+        }
+      })
+      .catch((e) => {
+        if (request === selectionRequest.current) setError(String(e));
+      });
   }
   const connectionSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -358,8 +416,7 @@ export function App() {
               next === "settings"
             )
               void run(async () => {
-                if (next === "policies")
-                  setPolicies(await api().ListPolicies());
+                if (next === "policies") await loadCatalog();
                 if (next === "favorites")
                   setFavorites(await api().ListFavorites());
                 if (next === "users") setUsers(await api().ListUsers());
@@ -436,8 +493,7 @@ export function App() {
               busy={busy}
               run={run}
               onOpen={(kind, id) => {
-                const o = indexedObject(browser.index, kind, id);
-                if (o) goTo(o);
+                void run(() => showObject(kind, id, true));
               }}
             />
           )}
@@ -499,7 +555,6 @@ export function App() {
           )}
           {view === "catalog" && (
             <CatalogView
-              catalog={catalog}
               lookups={lookups}
               browser={browser}
               busy={busy}
@@ -521,6 +576,9 @@ export function App() {
                 canEdit={!!canEdit}
                 canDelete={status.user?.role === "admin"}
                 favorite={selected ? isFavorite(selected) : false}
+                onAttachments={() => selected && setAttachmentObject(selected)}
+                onMove={() => selected && setMoveObject(selected)}
+                onMovements={() => selected && setMovementObject(selected)}
                 onEdit={() => selected && openEditor({ ...selected })}
                 onAddOracle={() =>
                   selected &&
@@ -557,8 +615,7 @@ export function App() {
           )}
           {view === "policies" && (
             <PoliciesPanel
-              catalog={catalog}
-              policies={policies}
+              revision={catalogRevision}
               busy={busy}
               canEdit={!!canEdit}
               canDelete={status.user?.role === "admin"}
@@ -656,6 +713,42 @@ export function App() {
           )}
         </main>
       </div>
+      {attachmentObject && (
+        <AttachmentsDialog
+          object={attachmentObject}
+          busy={busy}
+          error={error}
+          canEdit={!!canEdit}
+          canDelete={status.user?.role === "admin"}
+          run={run}
+          onClose={() => setAttachmentObject(null)}
+        />
+      )}
+      {moveObject && (
+        <MoveDialog
+          object={moveObject}
+          busy={busy}
+          error={error}
+          run={run}
+          onClose={() => setMoveObject(null)}
+          onMoved={async (o) => {
+            await loadCatalog();
+            await showObject(o.kind, o.id, true);
+            setMessage(
+              "Объект перемещён. Физические данные СУБД не переносились.",
+            );
+          }}
+        />
+      )}
+      {movementObject && (
+        <MovementsDialog
+          object={movementObject}
+          busy={busy}
+          error={error}
+          run={run}
+          onClose={() => setMovementObject(null)}
+        />
+      )}
       {editor && (
         <ObjectEditor
           editor={editor}
@@ -669,7 +762,7 @@ export function App() {
             void run(async () => {
               const saved = await api().SaveObject(editor);
               await loadCatalog();
-              setSelected(saved);
+              await showObject(saved.kind, saved.id, true);
               setRecordWindow(null);
               setEditor(null);
               setMessage("Объект сохранён");
@@ -685,6 +778,9 @@ export function App() {
           favorite={isFavorite(contextMenu.object)}
           onClose={() => setContextMenu(null)}
           onOpen={() => goTo(contextMenu.object)}
+          onAttachments={() => setAttachmentObject(contextMenu.object)}
+          onMove={() => setMoveObject(contextMenu.object)}
+          onMovements={() => setMovementObject(contextMenu.object)}
           onEdit={() => openEditor({ ...contextMenu.object })}
           onAddOracle={() =>
             openEditor({
@@ -734,7 +830,7 @@ export function App() {
           onSave={() =>
             void run(async () => {
               await api().SavePolicy(policyEditor);
-              setPolicies(await api().ListPolicies());
+              await loadCatalog();
               setPolicyEditor(null);
               setMessage("Политика сохранена");
             })
@@ -767,7 +863,7 @@ export function App() {
                       policyDelete.id,
                       policyDelete.version,
                     );
-                    setPolicies(await api().ListPolicies());
+                    await loadCatalog();
                     setPolicyDelete(null);
                     setMessage("Политика удалена");
                   })
@@ -804,15 +900,18 @@ export function App() {
           run={run}
           onClose={() => setRecordWindow(null)}
           onRestored={async () => {
-            const c = await loadCatalog();
-            const latest = [...c.servers, ...c.instances, ...c.databases].find(
-              (o) =>
-                o.id === recordWindow.target.id &&
-                o.kind === recordWindow.target.kind,
-            );
-            if (latest) {
-              setSelected(latest);
-              setRecordWindow((w) => (w ? { ...w, target: latest } : null));
+            await loadCatalog();
+            if (recordWindow.target.kind !== "policy") {
+              const context = await api().GetObjectContext(
+                recordWindow.target.kind,
+                recordWindow.target.id,
+              );
+              setSelected(context.object);
+              setCatalog(context.catalog);
+              setPolicies(context.policies);
+              setRecordWindow((w) =>
+                w ? { ...w, target: context.object } : null,
+              );
             }
           }}
         />

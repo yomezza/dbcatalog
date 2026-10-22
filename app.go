@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/yomezza/test/internal/application"
 	"github.com/yomezza/test/internal/config"
+	"github.com/yomezza/test/internal/documents"
 	"github.com/yomezza/test/internal/downloads"
 	"os"
 	"slices"
@@ -154,3 +155,56 @@ func (a *App) PreviewExcelPolicies(token string, c application.PolicyImportConfi
 }
 
 func (a *App) GetWorkspace() (application.Workspace, error) { return a.service.GetWorkspace() }
+
+func (a *App) BrowseCatalog(r application.CatalogBrowseRequest) (application.CatalogPage, error) {
+	return a.service.BrowseCatalog(r)
+}
+func (a *App) GetCatalogWorkspace() (application.CatalogWorkspace, error) {
+	return a.service.GetCatalogWorkspace()
+}
+func (a *App) GetObjectContext(kind, id string) (application.ObjectContext, error) {
+	return a.service.GetObjectContext(kind, id)
+}
+func (a *App) FindObjects(kind, query string, page int) (application.ObjectOptions, error) {
+	return a.service.FindObjects(kind, query, page)
+}
+func (a *App) SelectCatalogResult(f application.CatalogCriteria) ([]application.ObjectRef, error) {
+	return a.service.SelectCatalogResult(f)
+}
+func (a *App) CountSelectionOutside(f application.CatalogCriteria, ids []string) (int, error) {
+	return a.service.CountSelectionOutside(f, ids)
+}
+func (a *App) ExportCatalogResult(f application.CatalogCriteria) (downloads.Entry, error) {
+	return a.service.ExportCatalogResult(f)
+}
+func (a *App) PreviewMove(r application.MoveRequest) (application.MovePreview, error) {
+	return a.service.PreviewMove(r)
+}
+func (a *App) ApplyMove(r application.MoveRequest, fingerprint string) (application.Object, error) {
+	return a.service.ApplyMove(r, fingerprint)
+}
+func (a *App) GetMovements(kind, id string, page int) (application.MovementPage, error) {
+	return a.service.GetMovements(kind, id, page)
+}
+func (a *App) ListAttachments(kind, id string, page int) (application.AttachmentPage, error) {
+	return a.service.ListAttachments(kind, id, page)
+}
+func (a *App) UploadAttachment(in application.AttachmentUpload) (application.Attachment, error) {
+	return a.service.UploadAttachment(in)
+}
+func (a *App) SaveInstruction(kind, id, attachmentID string, version int64, in documents.Instruction) (application.Attachment, error) {
+	return a.service.SaveInstruction(kind, id, attachmentID, version, in)
+}
+func (a *App) InstructionTemplate(kind, id, template string) (documents.Instruction, error) {
+	return a.service.InstructionTemplate(kind, id, template)
+}
+func (a *App) DeleteAttachment(id string, version int64) error {
+	return a.service.DeleteAttachment(id, version)
+}
+func (a *App) DownloadAttachment(id string) (downloads.Entry, error) {
+	return a.service.DownloadAttachment(id)
+}
+
+func (a *App) GetPolicyPage(query string, page int) (application.PolicyPage, error) {
+	return a.service.GetPolicyPage(query, page)
+}

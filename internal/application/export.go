@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +42,18 @@ func (s *Service) exportSelectionLocked(ids []string) (string, error) {
 	}
 	defer tx.Rollback(ctx)
 
-	query, err := tx.Query(ctx, `SELECT to_jsonb(d),to_jsonb(i),to_jsonb(s) FROM databases d LEFT JOIN instances i ON i.id=d.instance_id JOIN servers s ON s.id=coalesce(d.server_id,i.server_id) WHERE $1::uuid[] IS NULL OR d.id=ANY($1::uuid[]) ORDER BY lower(s.name),s.id,i.name,d.name,d.id`, ids)
+	encoded, err := writeCatalogExport(ctx, tx, ids, s.user.ID)
+	if err != nil {
+		return "", err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return "", importDatabaseError(err)
+	}
+	return encoded, nil
+}
+func writeCatalogExport(ctx context.Context, tx pgx.Tx, ids []string, actor string) (string, error) {
+
+	query, err := tx.Query(ctx, `SELECT (to_jsonb(d)-'search_text'),(to_jsonb(i)-'search_text'),(to_jsonb(s)-'search_text') FROM databases d LEFT JOIN instances i ON i.id=d.instance_id JOIN servers s ON s.id=coalesce(d.server_id,i.server_id) WHERE $1::uuid[] IS NULL OR d.id=ANY($1::uuid[]) ORDER BY lower(s.name),s.id,i.name,d.name,d.id`, ids)
 	if err != nil {
 		return "", importDatabaseError(err)
 	}
@@ -101,10 +113,7 @@ func (s *Service) exportSelectionLocked(ids []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err = event(ctx, tx, s.user.ID, "excel_export", "export", security.ID()); err != nil {
-		return "", importDatabaseError(err)
-	}
-	if err = tx.Commit(ctx); err != nil {
+	if err = event(ctx, tx, actor, "excel_export", "export", security.ID()); err != nil {
 		return "", importDatabaseError(err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil

@@ -24,6 +24,13 @@ const detailLabels: Record<string, string> = {
   previousVersion: "Предыдущая версия",
   resultVersion: "Созданная версия",
   reason: "Причина",
+  from: "Прежний путь",
+  to: "Новый путь",
+  attachmentId: "Идентификатор вложения",
+  fileName: "Имя файла",
+  size: "Размер в байтах",
+  name: "Название",
+  version: "Версия",
 };
 const initial: AuditFilter = {
   query: "",

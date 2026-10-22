@@ -48,6 +48,9 @@ interface Props {
   canEdit: boolean;
   canDelete: boolean;
   favorite: boolean;
+  onAttachments: () => void;
+  onMove: () => void;
+  onMovements: () => void;
   onEdit: () => void;
   onAdd: () => void;
   onAddOracle: () => void;
@@ -189,6 +192,22 @@ export function ObjectCard(p: Props) {
         />
       )}
       <div className="detail-actions">
+        <button disabled={p.busy} onClick={p.onAttachments}>
+          Вложения и инструкции
+        </button>
+        {o.kind !== "server" && (
+          <>
+            <button disabled={p.busy} onClick={p.onMovements}>
+              История перемещений
+            </button>
+            {p.canEdit && (
+              <button disabled={p.busy} onClick={p.onMove}>
+                Переместить…
+              </button>
+            )}
+          </>
+        )}
+
         {p.canEdit && (
           <>
             <button disabled={p.busy} onClick={p.onEdit}>

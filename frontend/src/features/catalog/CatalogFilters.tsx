@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   api,
-  type Catalog,
   type CatalogCriteria,
   type Lookups,
   type FilterPreset,
@@ -11,34 +10,22 @@ import type { AsyncTaskRunner as Run } from "../../ui/types";
 export function CatalogFilters({
   value,
   onChange,
-  catalog,
   lookups,
   busy,
   run,
 }: {
   value: CatalogCriteria;
   onChange: (f: CatalogCriteria) => void;
-  catalog: Catalog;
   lookups: Lookups;
   busy: boolean;
   run: Run;
 }) {
   const [presets, setPresets] = useState<FilterPreset[]>([]),
     [name, setName] = useState("");
-  const options = useMemo(
-    () => ({
-      dbms: [
-        ...new Set([
-          ...catalog.instances.map((i) => i.dbms),
-          ...catalog.databases.map((d) => d.dbms),
-        ]),
-      ],
-      responsible: [
-        ...new Set(catalog.databases.map((d) => d.attributes.responsible)),
-      ],
-    }),
-    [catalog],
-  );
+  const options = {
+    dbms: lookups.dbms ?? [],
+    responsible: lookups.responsible ?? [],
+  };
   useEffect(() => {
     void run(async () => setPresets(await api().ListFilterPresets()));
   }, []);
