@@ -18,8 +18,8 @@ describe("literal AND search", () => {
     const i = {
       ...newObject("instance", "s"),
       id: "i",
-      name: "Oracle",
-      dbms: "Oracle Database",
+      name: "PostgreSQL",
+      dbms: "PostgreSQL",
     };
     const a = { ...newObject("database", "i"), id: "a", name: "TEST2" };
     const b = { ...newObject("database", "i"), id: "b", name: "OTHER" };
@@ -28,6 +28,21 @@ describe("literal AND search", () => {
       filterCatalog(c, "TEST1 | TEST2").databases.map((d) => d.id),
     ).toEqual(["a"]);
     expect(filterCatalog(c, "TEST2 | OTHER").servers).toHaveLength(0);
-    expect(filterCatalog(c, "TEST1 | Oracle").databases).toHaveLength(2);
+    expect(filterCatalog(c, "TEST1 | PostgreSQL").databases).toHaveLength(2);
   });
+});
+
+it("searches Oracle directly under the server without mixing siblings", () => {
+  const server = { ...newObject("server"), id: "s", name: "HOST" },
+    oracle = {
+      ...newObject("database", "s"),
+      id: "o",
+      name: "COPY",
+      dbms: "Oracle Database",
+      dbmsVersion: "19c",
+    },
+    other = { ...oracle, id: "o2", name: "OTHER" };
+  const c = { servers: [server], instances: [], databases: [oracle, other] };
+  expect(filterCatalog(c, "HOST | Oracle | COPY").databases).toEqual([oracle]);
+  expect(filterCatalog(c, "COPY | OTHER").servers).toHaveLength(0);
 });

@@ -217,11 +217,11 @@ func (s *Service) GetEffectivePolicy(databaseID string) (EffectivePolicy, error)
 	}
 	defer tx.Rollback(ctx)
 	var instanceID string
-	if err = tx.QueryRow(ctx, `SELECT instance_id::text FROM databases WHERE id=$1`, databaseID).Scan(&instanceID); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT coalesce(instance_id::text,'') FROM databases WHERE id=$1`, databaseID).Scan(&instanceID); err != nil {
 		return EffectivePolicy{}, errors.New("База данных не найдена")
 	}
 	var raw []byte
-	err = tx.QueryRow(ctx, `SELECT to_jsonb(p) FROM backup_policies p WHERE database_id=$1 OR instance_id=$2 ORDER BY (database_id IS NOT NULL) DESC LIMIT 1`, databaseID, instanceID).Scan(&raw)
+	err = tx.QueryRow(ctx, `SELECT to_jsonb(p) FROM backup_policies p WHERE database_id=$1 OR instance_id=$2 ORDER BY (database_id IS NOT NULL) DESC LIMIT 1`, databaseID, nullableID(instanceID)).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return EffectivePolicy{}, nil
 	}
@@ -233,4 +233,11 @@ func (s *Service) GetEffectivePolicy(databaseID string) (EffectivePolicy, error)
 		return EffectivePolicy{}, err
 	}
 	return EffectivePolicy{Policy: &p, Inherited: p.Kind == "instance"}, nil
+}
+
+func nullableID(id string) any {
+	if id == "" {
+		return nil
+	}
+	return id
 }

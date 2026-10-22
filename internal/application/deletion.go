@@ -98,7 +98,7 @@ func loadDeletion(ctx context.Context, tx pgx.Tx, kind, id string, version int64
 		}
 	}
 	if kind != "database" {
-		plan.databases, err = deletionObjects(ctx, tx, "database", "instance_id=ANY($1::uuid[])", objectIDs(plan.instances))
+		plan.databases, err = deletionObjects(ctx, tx, "database", "instance_id=ANY($1::uuid[]) OR server_id=ANY($2::uuid[])", objectIDs(plan.instances), objectIDs(plan.servers))
 		if err != nil {
 			return plan, err
 		}

@@ -25,7 +25,7 @@ func (s *Service) exportExcelLocked() (string, error) {
 	}
 	defer tx.Rollback(ctx)
 
-	query, err := tx.Query(ctx, `SELECT to_jsonb(d),to_jsonb(i),to_jsonb(s) FROM databases d JOIN instances i ON i.id=d.instance_id JOIN servers s ON s.id=i.server_id ORDER BY lower(s.name),s.id,i.name,d.name,d.id`)
+	query, err := tx.Query(ctx, `SELECT to_jsonb(d),to_jsonb(i),to_jsonb(s) FROM databases d LEFT JOIN instances i ON i.id=d.instance_id JOIN servers s ON s.id=coalesce(d.server_id,i.server_id) ORDER BY lower(s.name),s.id,i.name,d.name,d.id`)
 	if err != nil {
 		return "", importDatabaseError(err)
 	}
@@ -41,7 +41,10 @@ func (s *Service) exportExcelLocked() (string, error) {
 			query.Close()
 			return "", e
 		}
-		instance, e := decodeObject(i, "instance")
+		instance := Object{}
+		if len(i) > 0 {
+			instance, e = decodeObject(i, "instance")
+		}
 		if e != nil {
 			query.Close()
 			return "", e
@@ -50,6 +53,11 @@ func (s *Service) exportExcelLocked() (string, error) {
 		if e != nil {
 			query.Close()
 			return "", e
+		}
+		if db.DBMS == "Oracle Database" {
+			instance.Name = ""
+			instance.DBMS = db.DBMS
+			instance.DBMSVersion = db.DBMSVersion
 		}
 		a, sa := db.Attributes, server.Attributes
 		rows = append(rows, [21]string{db.Name, instance.Name, db.Status, db.Environment, server.Name, instance.DBMS, instance.DBMSVersion, sa.ConnectionMethod, sa.Domain, server.Address, sa.Location, a.InformationSystem, a.ServiceOrganization, a.Supervisor, a.Responsible, server.OS, sa.OSVersion, sa.OSFamily, db.Purpose, strings.Join(a.Administration, ";"), a.PersonalData})

@@ -1,3 +1,4 @@
+import { RestoreDialog } from "./RestoreDialog";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -15,7 +16,7 @@ import {
   type Lookups,
   type DeletionPreview,
 } from "./api";
-import { filterCatalog, pageOf } from "./catalog";
+import { filterCatalog, pageOf, branchKeys, oracleGroupKey } from "./catalog";
 import "./style.css";
 import { Stat, UserRow } from "./components";
 import { ConnectionPanel } from "./ConnectionPanel";
@@ -81,6 +82,11 @@ function App() {
       return next;
     });
   }
+  const [restore, setRestore] = useState<{
+    object: CatalogObject;
+    entry: HistoryEntry;
+    side: "before" | "after";
+  } | null>(null);
   const [settingsConnection, setSettingsConnection] =
     useState<Connection | null>(null);
   const [query, setQuery] = useState(""),
@@ -124,7 +130,7 @@ function App() {
     const serverID =
       o.kind === "server"
         ? o.id
-        : o.kind === "instance"
+        : o.kind === "instance" || o.dbms === "Oracle Database"
           ? o.parentId
           : instance?.parentId;
     setExpanded(
@@ -133,6 +139,7 @@ function App() {
           ...old,
           ...(serverID ? [serverID] : []),
           ...(instance ? [instance.id] : []),
+          ...(o.dbms === "Oracle Database" ? [oracleGroupKey(o.parentId)] : []),
         ]),
     );
     setPage(
@@ -233,6 +240,7 @@ function App() {
     });
   }, []);
   useEffect(() => {
+    setRestore(null);
     if (!status.user) {
       setUnread(0);
       setExpanded(new Set());
@@ -489,9 +497,7 @@ function App() {
                 setQuery(q);
                 setPage(0);
                 const f = filterCatalog(catalog, q);
-                setExpanded(
-                  new Set([...f.servers, ...f.instances].map((o) => o.id)),
-                );
+                setExpanded(new Set(branchKeys(f)));
               }}
             />
           )}
@@ -582,11 +588,7 @@ function App() {
                         setPage(0);
                         const f = filterCatalog(catalog, e.target.value);
                         setExpanded(
-                          e.target.value
-                            ? new Set(
-                                [...f.servers, ...f.instances].map((o) => o.id),
-                              )
-                            : new Set(),
+                          e.target.value ? new Set(branchKeys(f)) : new Set(),
                         );
                       }}
                     />
@@ -594,15 +596,7 @@ function App() {
                   <div className="tree-controls">
                     <button
                       disabled={busy || !matches.length}
-                      onClick={() =>
-                        setExpanded(
-                          new Set(
-                            [...filtered.servers, ...filtered.instances].map(
-                              (o) => o.id,
-                            ),
-                          ),
-                        )
-                      }
+                      onClick={() => setExpanded(new Set(branchKeys(filtered)))}
                     >
                       Раскрыть все
                     </button>
@@ -657,6 +651,13 @@ function App() {
                   canDelete={status.user?.role === "admin"}
                   favorite={selected ? isFavorite(selected) : false}
                   onEdit={() => selected && openEditor({ ...selected })}
+                  onAddOracle={() =>
+                    selected &&
+                    openEditor({
+                      ...newObject("database", selected.id),
+                      dbms: "Oracle Database",
+                    })
+                  }
                   onAdd={() =>
                     selected &&
                     selected.kind !== "database" &&
@@ -669,6 +670,9 @@ function App() {
                   }
                   onFavorite={() =>
                     selected && void run(() => toggleFavorite(selected))
+                  }
+                  onRestore={(entry, side) =>
+                    selected && setRestore({ object: selected, entry, side })
                   }
                   onHistory={() =>
                     selected &&
@@ -804,6 +808,12 @@ function App() {
           onClose={() => setContextMenu(null)}
           onOpen={() => goTo(contextMenu.object)}
           onEdit={() => openEditor({ ...contextMenu.object })}
+          onAddOracle={() =>
+            openEditor({
+              ...newObject("database", contextMenu.object.id),
+              dbms: "Oracle Database",
+            })
+          }
           onAdd={() =>
             openEditor(
               newObject(
@@ -894,6 +904,35 @@ function App() {
             {error && <div className="notice error">{error}</div>}
           </section>
         </div>
+      )}
+      {restore && (
+        <RestoreDialog
+          object={restore.object}
+          entry={restore.entry}
+          side={restore.side}
+          busy={busy}
+          error={error}
+          onClose={() => setRestore(null)}
+          onConfirm={() =>
+            void run(async () => {
+              const o = restore.object;
+              const saved = await api().RestoreObject(
+                o.kind,
+                o.id,
+                o.version,
+                restore.entry.id,
+                restore.side,
+              );
+              await loadCatalog();
+              setSelected(saved);
+              setHistory(await api().GetHistory(saved.kind, saved.id));
+              setRestore(null);
+              setMessage(
+                "Историческое состояние восстановлено как новая версия",
+              );
+            })
+          }
+        />
       )}
       {deletion && (
         <DeletionDialog

@@ -69,6 +69,8 @@ func PublicError(err error) string {
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) {
 		switch pg.Code {
+		case "CD001":
+			return "Найдены одинаковые SID Oracle в разных экземплярах одного сервера. Обновление отменено без изменения данных; устраните неоднозначность до перехода на новую структуру"
 		case "28P01", "28000":
 			return "PostgreSQL отклонил имя пользователя или пароль."
 		case "42501":

@@ -47,7 +47,7 @@ func (s *Service) GetServerConnection(kind, id string) (ServerConnection, error)
 	case "instance":
 		query = `SELECT s.name,s.address,coalesce(s.attributes->>'connectionMethod','') FROM instances i JOIN servers s ON s.id=i.server_id WHERE i.id=$1`
 	case "database":
-		query = `SELECT s.name,s.address,coalesce(s.attributes->>'connectionMethod','') FROM databases d JOIN instances i ON i.id=d.instance_id JOIN servers s ON s.id=i.server_id WHERE d.id=$1`
+		query = `SELECT s.name,s.address,coalesce(s.attributes->>'connectionMethod','') FROM databases d LEFT JOIN instances i ON i.id=d.instance_id JOIN servers s ON s.id=coalesce(d.server_id,i.server_id) WHERE d.id=$1`
 	default:
 		return out, errors.New("Неизвестный тип объекта")
 	}

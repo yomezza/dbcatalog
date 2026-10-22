@@ -74,6 +74,12 @@ export function ImportRowEditor({
           ))}
         </ul>
       )}
+      {values[5] === "Oracle Database" && (
+        <p className="info">
+          Oracle Database размещается непосредственно на сервере. Поле
+          «Экземпляр» не участвует в проверке и сопоставлении.
+        </p>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();

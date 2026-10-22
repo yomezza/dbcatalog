@@ -69,6 +69,18 @@ type objectIndex struct {
 func serverKey(name string) string             { return "s:" + strings.ToLower(strings.TrimSpace(name)) }
 func instanceKey(server, name string) string   { return "i:" + server + "\x00" + name }
 func databaseKey(instance, name string) string { return "d:" + instance + "\x00" + name }
+func oracleKey(server, name string) string     { return databaseKey("oracle:"+server, name) }
+func (item importItem) isOracle() bool         { return item.database.DBMS == "Oracle Database" }
+func (item importItem) keys() (string, string, string) {
+	sk := serverKey(item.server.Name)
+	ik := instanceKey(sk, item.instance.Name)
+	dk := databaseKey(ik, item.database.Name)
+	if item.isOracle() {
+		ik = ""
+		dk = oracleKey(sk, item.database.Name)
+	}
+	return sk, ik, dk
+}
 func loadIndex(ctx context.Context, tx pgx.Tx) (objectIndex, error) {
 	idx := objectIndex{map[string]Object{}, map[string]Object{}, map[string]Object{}, map[string]bool{}}
 	serverIDs, instanceIDs := map[string]string{}, map[string]string{}
@@ -102,7 +114,14 @@ func loadIndex(ctx context.Context, tx pgx.Tx) (objectIndex, error) {
 				idx.instances[k] = o
 				instanceIDs[o.ID] = k
 			case "database":
-				idx.databases[databaseKey(instanceIDs[o.ParentID], o.Name)] = o
+				key := databaseKey(instanceIDs[o.ParentID], o.Name)
+				if o.DBMS == "Oracle Database" {
+					key = oracleKey(serverIDs[o.ParentID], o.Name)
+				}
+				if _, ok := idx.databases[key]; ok {
+					idx.ambiguous[key] = true
+				}
+				idx.databases[key] = o
 			}
 		}
 		rows.Close()
@@ -134,14 +153,19 @@ func splitAdministration(s string) []string {
 }
 func objectsFromRow(row spreadsheet.Row) importItem {
 	v := row.Values
-	return importItem{number: row.Number, errors: []string{}, server: Object{Kind: "server", Name: v[4], Address: v[9], OS: v[15], Status: "Эксплуатируется", Attributes: Attributes{ConnectionMethod: v[7], Domain: v[8], Location: v[10], OSVersion: v[16], OSFamily: v[17]}}, instance: Object{Kind: "instance", Name: v[1], DBMS: v[5], DBMSVersion: v[6], Status: "Эксплуатируется"}, database: Object{Kind: "database", Name: v[0], Status: v[2], Environment: v[3], Purpose: v[18], Attributes: Attributes{InformationSystem: v[11], ServiceOrganization: v[12], Supervisor: v[13], Responsible: v[14], Administration: splitAdministration(v[19]), PersonalData: v[20]}}}
+	item := importItem{number: row.Number, errors: []string{}, server: Object{Kind: "server", Name: v[4], Address: v[9], OS: v[15], Status: "Эксплуатируется", Attributes: Attributes{ConnectionMethod: v[7], Domain: v[8], Location: v[10], OSVersion: v[16], OSFamily: v[17]}}, instance: Object{Kind: "instance", Name: v[1], DBMS: v[5], DBMSVersion: v[6], Status: "Эксплуатируется"}, database: Object{Kind: "database", Name: v[0], Status: v[2], Environment: v[3], Purpose: v[18], Attributes: Attributes{InformationSystem: v[11], ServiceOrganization: v[12], Supervisor: v[13], Responsible: v[14], Administration: splitAdministration(v[19]), PersonalData: v[20]}}}
+	if v[5] == "Oracle Database" {
+		item.database.DBMS = "Oracle Database"
+		item.database.DBMSVersion = v[6]
+	}
+	return item
 }
 func validateImportItem(ctx context.Context, tx pgx.Tx, item *importItem) {
-	if item.instance.DBMS == "Oracle Database" && strings.EqualFold(item.instance.Name, "default") {
-		item.errors = append(item.errors, "Для Oracle укажите реальное имя экземпляра: значение default неоднозначно")
-	}
 
 	for _, pair := range []struct{ name, value string }{{"Имя сервера", item.server.Name}, {"Экземпляр", item.instance.Name}, {"Тип СУБД", item.instance.DBMS}, {"SID", item.database.Name}} {
+		if pair.name == "Экземпляр" && item.isOracle() {
+			continue
+		}
 		if pair.value == "" {
 			item.errors = append(item.errors, "Не заполнено: "+pair.name)
 		}
@@ -161,9 +185,17 @@ func validateImportItem(ctx context.Context, tx pgx.Tx, item *importItem) {
 		}
 	}
 }
-func serverEquivalent(a, b Object) bool {
-	return a.Address == b.Address && a.OS == b.OS && reflect.DeepEqual(a.Attributes, b.Attributes)
+func serverDifferences(a, b Object) []string {
+	fields := []struct{ label, a, b string }{{"IPv4-адрес", a.Address, b.Address}, {"Операционная система", a.OS, b.OS}, {"Подключение к серверу", a.Attributes.ConnectionMethod, b.Attributes.ConnectionMethod}, {"Доменное членство", a.Attributes.Domain, b.Attributes.Domain}, {"Месторасположение", a.Attributes.Location, b.Attributes.Location}, {"Версия системы", a.Attributes.OSVersion, b.Attributes.OSVersion}, {"Семейство системы", a.Attributes.OSFamily, b.Attributes.OSFamily}}
+	out := []string{}
+	for _, f := range fields {
+		if f.a != f.b {
+			out = append(out, f.label)
+		}
+	}
+	return out
 }
+func serverEquivalent(a, b Object) bool { return len(serverDifferences(a, b)) == 0 }
 func sameObject(a, b Object) bool {
 	a.ID = ""
 	a.Version = 0

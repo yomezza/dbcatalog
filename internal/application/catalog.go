@@ -128,6 +128,9 @@ func decodeObject(raw []byte, kind string) (Object, error) {
 	}
 	if kind == "database" {
 		o.ParentID = extra.InstanceID
+		if o.DBMS == "Oracle Database" {
+			o.ParentID = extra.ServerID
+		}
 	}
 	return o, nil
 }
@@ -151,6 +154,9 @@ func (s *Service) SaveObject(o Object) (Object, error) {
 	return result, nil
 }
 func (s *Service) saveObjectTx(ctx context.Context, tx pgx.Tx, o Object) (Object, error) {
+	return s.saveObjectTxAction(ctx, tx, o, false)
+}
+func (s *Service) saveObjectTxAction(ctx context.Context, tx pgx.Tx, o Object, restore bool) (Object, error) {
 	t, err := table(o.Kind)
 	if err != nil {
 		return o, err
@@ -168,6 +174,16 @@ func (s *Service) saveObjectTx(ctx context.Context, tx pgx.Tx, o Object) (Object
 	}
 	if o.Kind != "server" && o.ParentID == "" {
 		return o, errors.New("Выберите родительский объект")
+	}
+	if o.Kind == "instance" && o.DBMS == "Oracle Database" {
+		return o, errors.New("Oracle Database добавляется как база непосредственно на сервер, без экземпляра")
+	}
+	if o.Kind == "database" && o.DBMS != "" && o.DBMS != "Oracle Database" {
+		return o, errors.New("Для обычной БД выберите экземпляр; прямое размещение на сервере доступно для Oracle Database")
+	}
+	if o.Kind == "database" && o.DBMS == "" {
+		o.Port = nil
+		o.DBMSVersion = ""
 	}
 	if o.Kind == "instance" && strings.TrimSpace(o.DBMS) == "" {
 		return o, errors.New("Укажите тип СУБД")
@@ -203,6 +219,9 @@ func (s *Service) saveObjectTx(ctx context.Context, tx pgx.Tx, o Object) (Object
 	if err = validateObjectChoices(ctx, tx, o, previous); err != nil {
 		return o, err
 	}
+	if restore {
+		action = "restore"
+	}
 	var sql string
 	var args []any
 	switch o.Kind {
@@ -221,12 +240,19 @@ func (s *Service) saveObjectTx(ctx context.Context, tx pgx.Tx, o Object) (Object
 			sql = `UPDATE instances SET server_id=$2,name=$3,dbms=$4,dbms_version=$5,port=$6,status=$7,description=$8,updated_by=$9,version=version+1,updated_at=now() WHERE id=$1`
 		}
 	case "database":
-		args = []any{o.ID, o.ParentID, o.Name, o.Purpose, o.Status, o.Description, s.user.ID}
-		if action == "create" {
-			sql = `INSERT INTO databases(id,instance_id,name,purpose,status,description,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7)`
+		var instanceID, serverID any
+		if o.DBMS == "Oracle Database" {
+			serverID = o.ParentID
 		} else {
-			sql = `UPDATE databases SET instance_id=$2,name=$3,purpose=$4,status=$5,description=$6,updated_by=$7,version=version+1,updated_at=now() WHERE id=$1`
+			instanceID = o.ParentID
 		}
+		args = []any{o.ID, instanceID, o.Name, o.Purpose, o.Status, o.Description, s.user.ID, serverID, o.DBMS, o.DBMSVersion, o.Port}
+		if action == "create" {
+			sql = `INSERT INTO databases(id,instance_id,name,purpose,status,description,updated_by,server_id,dbms,dbms_version,port) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
+		} else {
+			sql = `UPDATE databases SET instance_id=$2,name=$3,purpose=$4,status=$5,description=$6,updated_by=$7,server_id=$8,dbms=$9,dbms_version=$10,port=$11,version=version+1,updated_at=now() WHERE id=$1`
+		}
+
 	}
 	if _, err = tx.Exec(ctx, sql, args...); err != nil {
 		return o, errors.New(database.PublicError(err))

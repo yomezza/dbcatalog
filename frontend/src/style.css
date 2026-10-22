@@ -1195,4 +1195,109 @@ aside nav button {
   padding-top: 18px;
 }
 
-.titlebar {position:sticky;top:0;z-index:3;}
+.titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+/* CatalogDB scrollbars: shared by document, trees, tables, dialogs, navigation and inputs. */
+:root {
+  --scrollbar-track: #e9f0f4;
+  --scrollbar-thumb: #8aa8b7;
+  --scrollbar-hover: #4b8499;
+  --scrollbar-active: #216d80;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+*::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-active);
+}
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+aside {
+  --scrollbar-track: #0d2030;
+  --scrollbar-thumb: #355569;
+  --scrollbar-hover: #508298;
+  --scrollbar-active: #70a0b5;
+}
+.oracle-group-label {
+  color: #975869;
+}
+.oracle-group .node-icon.oracle {
+  color: #ab6675;
+}
+@media (forced-colors: active) {
+  * {
+    scrollbar-color: auto;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: ButtonText;
+  }
+  *::-webkit-scrollbar-track {
+    background: Canvas;
+  }
+}
+.history-restore-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+.history-restore-actions button {
+  font-size: 10px;
+  padding: 5px 8px;
+}
+.restore-dialog {
+  max-width: 900px;
+}
+.restore-table {
+  overflow: auto;
+  max-height: 45vh;
+  margin: 16px 0;
+}
+.restore-table td {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 300px;
+}
+/* Chromium/WebView2 uses the full thumb/track theme; other engines use standard colors. */
+@supports selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+}
+@media (forced-colors: active) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: ButtonText;
+    border-color: Canvas;
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: Canvas;
+  }
+}

@@ -57,7 +57,7 @@ func loadStatistics(ctx context.Context, tx pgx.Tx) (Statistics, error) {
 		query string
 		dst   *[]Distribution
 	}{
-		{`SELECT i.dbms,count(DISTINCT i.id),count(d.id) FROM instances i LEFT JOIN databases d ON d.instance_id=i.id GROUP BY i.dbms ORDER BY count(d.id) DESC,i.dbms`, &out.DBMS},
+		{`SELECT dbms,sum(instances)::bigint,sum(databases)::bigint FROM (SELECT i.dbms,count(DISTINCT i.id) AS instances,count(d.id) AS databases FROM instances i LEFT JOIN databases d ON d.instance_id=i.id GROUP BY i.dbms UNION ALL SELECT dbms,0,count(*) FROM databases WHERE server_id IS NOT NULL GROUP BY dbms) t GROUP BY dbms ORDER BY sum(databases) DESC,dbms`, &out.DBMS},
 		{`SELECT status,0,count(*) FROM databases GROUP BY status ORDER BY count(*) DESC,status`, &out.Statuses},
 		{`SELECT environment,0,count(*) FROM databases GROUP BY environment ORDER BY count(*) DESC,environment`, &out.Environments},
 	} {

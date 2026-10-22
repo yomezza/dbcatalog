@@ -31,6 +31,12 @@ export function filterCatalog(c: Catalog, query: string): Catalog {
     list.push(o);
     byInstance.set(o.parentId, list);
   }
+  const direct = new Map<string, CatalogObject[]>();
+  for (const d of c.databases.filter((d) => d.dbms === "Oracle Database")) {
+    const a = direct.get(d.parentId) ?? [];
+    a.push(d);
+    direct.set(d.parentId, a);
+  }
   const servers: CatalogObject[] = [],
     instances: CatalogObject[] = [],
     databases: CatalogObject[] = [];
@@ -53,6 +59,12 @@ export function filterCatalog(c: Catalog, query: string): Catalog {
         serverKept = true;
       }
     }
+    for (const db of direct.get(server.id) ?? []) {
+      if (serverMatches || match([...sv, ...values(db)])) {
+        databases.push(db);
+        serverKept = true;
+      }
+    }
     if (serverKept) servers.push(server);
   }
   return { servers, instances, databases };
@@ -62,4 +74,19 @@ export function visibleServers(c: Catalog, query: string): CatalogObject[] {
 }
 export function pageOf<T>(items: T[], page: number, size = 10): T[] {
   return items.slice(Math.max(0, page) * size, (Math.max(0, page) + 1) * size);
+}
+
+export function oracleGroupKey(serverId: string) {
+  return `oracle:${serverId}`;
+}
+export function branchKeys(c: Catalog) {
+  return [
+    ...c.servers.map((o) => o.id),
+    ...c.instances.map((o) => o.id),
+    ...new Set(
+      c.databases
+        .filter((o) => o.dbms === "Oracle Database")
+        .map((o) => oracleGroupKey(o.parentId)),
+    ),
+  ];
 }

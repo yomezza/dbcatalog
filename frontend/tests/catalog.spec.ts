@@ -149,7 +149,7 @@ test("right-click adds child with the selected server and personal favorites can
     page
       .getByRole("combobox", { name: "Тип СУБД *", exact: true })
       .locator("option"),
-  ).toHaveCount(6);
+  ).toHaveCount(5);
   await page.getByRole("button", { name: "Отмена", exact: true }).click();
   await page
     .locator(".tree-node")
@@ -761,13 +761,11 @@ test("an import error can be corrected and revalidated before confirmation", asy
   await page
     .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
     .click();
-  await page
-    .getByLabel("Файл каталога (до 20 МБ)")
-    .setInputFiles({
-      name: "bad.xlsx",
-      mimeType: "application/octet-stream",
-      buffer: Buffer.from("mock"),
-    });
+  await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
+    name: "bad.xlsx",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("mock"),
+  });
   await page.getByRole("button", { name: "Исправить", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Исправление строки 2" });
   await dialog.getByLabel("Имя сервера", { exact: true }).fill("fixed-host");
@@ -884,4 +882,211 @@ test("statistics shows PostgreSQL counts and links to catalog search", async ({
     page.getByRole("textbox", { name: "Поиск в каталоге" }),
   ).toHaveValue("PostgreSQL");
   await expect(page.getByRole("button", { name: /payroll/ })).toBeVisible();
+});
+
+test("Oracle is grouped beside regular instances and remains searchable without an instance", async ({
+  page,
+}) => {
+  await login(page);
+  const oracle = {
+    ...newObject("database", "s1"),
+    id: "o1",
+    name: "ORCL",
+    dbms: "Oracle Database",
+    dbmsVersion: "19c",
+    version: 1,
+  };
+  await page.evaluate(async (oracle) => {
+    const c = await window.go!.main.App.GetCatalog();
+    Object.assign(window.go!.main.App, {
+      GetCatalog: async () => ({ ...c, databases: [...c.databases, oracle] }),
+    });
+  }, oracle);
+  await page.getByRole("button", { name: "↻ Обновить", exact: true }).click();
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "pg-main" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: /Oracle Database.*непосредственно на сервере/,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "ORCL" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", {
+      name: "Раскрыть ветку Oracle Database",
+      exact: true,
+    })
+    .click();
+  await page.locator(".tree-node").filter({ hasText: "ORCL" }).click();
+  await expect(page.locator(".object-path")).toHaveText(
+    "host-a / Oracle Database / ORCL",
+  );
+  await expect(
+    page
+      .locator(".object-card .value-badge")
+      .filter({ hasText: "Oracle Database" }),
+  ).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Поиск в каталоге", exact: true })
+    .fill("host-a | Oracle | ORCL");
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "ORCL" }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".tree-node").filter({ hasText: "pg-main" }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: "/tmp/catalogdb-oracle-050.png",
+    fullPage: true,
+  });
+});
+test("server context menu creates Oracle directly with server and version fields", async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "host-a" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Добавить базу Oracle", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Редактирование объекта" });
+  await expect(
+    dialog.getByRole("combobox", { name: "Сервер *", exact: true }),
+  ).toHaveValue("s1");
+  await expect(
+    dialog.getByRole("combobox", { name: "Экземпляр СУБД *", exact: true }),
+  ).toHaveCount(0);
+  await dialog
+    .getByLabel("SID / имя базы данных *", { exact: true })
+    .fill("ORCL");
+  await dialog
+    .getByLabel("Версия Oracle Database", { exact: true })
+    .fill("19c");
+  await dialog.getByLabel("Порт Oracle", { exact: true }).fill("1521");
+  await dialog.getByRole("button", { name: "Сохранить", exact: true }).click();
+  const saved = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __saved: { dbms: string; parentId: string; dbmsVersion: string };
+        }
+      ).__saved,
+  );
+  expect(saved.dbms).toBe("Oracle Database");
+  expect(saved.parentId).toBe("s1");
+  expect(saved.dbmsVersion).toBe("19c");
+  expect((saved as typeof saved & { port: number }).port).toBe(1521);
+});
+test("branded scrollbar rules cover document, dark navigation, dialogs and textareas", async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "host-a" })
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Изменить", exact: true }).click();
+  const styles = await page.evaluate(() =>
+    [
+      document.documentElement,
+      document.querySelector("aside nav")!,
+      document.querySelector(".modal")!,
+      document.querySelector("textarea")!,
+    ].map((el) => ({
+      width: getComputedStyle(el, "::-webkit-scrollbar").width,
+      thumb: getComputedStyle(el, "::-webkit-scrollbar-thumb").backgroundColor,
+      track: getComputedStyle(el, "::-webkit-scrollbar-track").backgroundColor,
+    })),
+  );
+  expect(styles.every((s) => s.width === "9px")).toBe(true);
+  expect(["rgb(138, 168, 183)", "rgb(75, 132, 153)"]).toContain(
+    styles[0].thumb,
+  );
+  expect(["rgb(53, 85, 105)", "rgb(80, 130, 152)"]).toContain(styles[1].thumb);
+  expect(styles[2].track).toBe("rgb(233, 240, 244)");
+});
+test("admin restores a historical object state only after reviewing and confirming", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const app = window.go!.main.App;
+    const get = app.GetCatalog;
+    let restored = false;
+    Object.assign(app, {
+      GetHistory: async () => [
+        {
+          id: 7,
+          action: "update",
+          actor: "admin",
+          createdAt: new Date().toISOString(),
+          before: {
+            id: "d1",
+            kind: "database",
+            parentId: "i1",
+            name: "old-payroll",
+            attributes: { administration: [] },
+          },
+          after: {
+            id: "d1",
+            kind: "database",
+            parentId: "i1",
+            name: "payroll",
+            attributes: { administration: [] },
+          },
+        },
+      ],
+      RestoreObject: async (
+        kind: string,
+        id: string,
+        version: number,
+        historyId: number,
+        side: string,
+      ) => {
+        if (
+          kind !== "database" ||
+          id !== "d1" ||
+          version !== 1 ||
+          historyId !== 7 ||
+          side !== "before"
+        )
+          throw new Error("Неверное подтверждение");
+        restored = true;
+        const c = await get();
+        return { ...c.databases[0], name: "old-payroll", version: 2 };
+      },
+      GetCatalog: async () => {
+        const c = await get();
+        return {
+          ...c,
+          databases: c.databases.map((d) =>
+            restored ? { ...d, name: "old-payroll", version: 2 } : d,
+          ),
+        };
+      },
+    });
+  });
+  await page.locator(".tree-node").filter({ hasText: "payroll" }).click();
+  await page
+    .getByRole("button", { name: "История изменений", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Восстановить «Было»", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Восстановить состояние «payroll»?",
+  });
+  await expect(
+    dialog.getByRole("cell", { name: "old-payroll", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Подтвердить восстановление", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".object-card h2")).toHaveText("old-payroll");
 });

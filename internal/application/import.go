@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"strings"
 	"time"
@@ -48,33 +49,44 @@ func (s *Service) buildImportPlan(ctx context.Context, tx pgx.Tx, wb spreadsheet
 	}
 	plan := &importPlan{workbook: wb, preview: ImportPreview{Token: security.ID(), Sheet: wb.Sheet, Columns: wb.Columns, Total: len(wb.Rows), Ignored: wb.IgnoredRows, SecretsIgnored: wb.SecretRows, BackupRows: wb.BackupRows, Rows: []ImportRowPreview{}}, versions: map[string]objectStamp{}, expires: time.Now().Add(10 * time.Minute), userID: s.user.ID}
 	seenServers, seenInstances, seenDB := map[string]Object{}, map[string]Object{}, map[string]bool{}
+	firstServerRow := map[string]int{}
 	for _, row := range wb.Rows {
 		item := objectsFromRow(row)
 		validateImportItem(ctx, tx, &item)
-		sk := serverKey(item.server.Name)
-		ik := instanceKey(sk, item.instance.Name)
-		dk := databaseKey(ik, item.database.Name)
+		sk, ik, dk := item.keys()
 		if idx.ambiguous[sk] {
 			item.errors = append(item.errors, "В каталоге несколько серверов с таким именем; устраните неоднозначность")
 		}
 		if old, ok := seenServers[sk]; ok && !serverEquivalent(old, item.server) {
-			item.errors = append(item.errors, "Повторяющиеся строки сервера содержат разные общие параметры")
+			item.errors = append(item.errors, fmt.Sprintf("Повторяющиеся строки сервера «%s» содержат разные общие параметры (строки %d и %d): %s", item.server.Name, firstServerRow[sk], row.Number, strings.Join(serverDifferences(old, item.server), ", ")))
 		}
 		if old, ok := seenInstances[ik]; ok && (old.DBMS != item.instance.DBMS || old.DBMSVersion != item.instance.DBMSVersion) {
 			item.errors = append(item.errors, "Один экземпляр указан с разными типами/версиями СУБД")
 		}
-		if old := idx.instances[ik]; old.ID != "" && old.DBMS != item.instance.DBMS {
+		if old := idx.instances[ik]; !item.isOracle() && old.ID != "" && old.DBMS != item.instance.DBMS {
 			item.errors = append(item.errors, "Тип существующего экземпляра не совпадает; автоматически менять его нельзя")
 		}
 		if seenDB[dk] {
-			item.errors = append(item.errors, "Повтор SID внутри одного экземпляра в исходном файле")
+			scope := "экземпляра"
+			if item.isOracle() {
+				scope = "сервера Oracle"
+			}
+			item.errors = append(item.errors, "Повтор SID внутри одного "+scope+" в исходном файле")
 		}
 		if len(item.errors) == 0 {
 			plan.preview.Valid++
+			if _, ok := seenServers[sk]; !ok {
+				firstServerRow[sk] = row.Number
+			}
 			seenServers[sk] = item.server
-			seenInstances[ik] = item.instance
+			if !item.isOracle() {
+				seenInstances[ik] = item.instance
+			}
 			seenDB[dk] = true
 			for _, key := range []string{sk, ik, dk} {
+				if key == "" {
+					continue
+				}
 				o := idx.get(key)
 				plan.versions[key] = objectStamp{o.ID, o.Version}
 			}
@@ -173,21 +185,23 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			result.Skipped++
 			continue
 		}
-		sk := serverKey(item.server.Name)
+		sk, ik, dk := item.keys()
 		server, err := s.saveImportedObject(ctx, tx, idx.servers[sk], item.server, &result)
 		if err != nil {
 			return ImportResult{}, err
 		}
 		idx.servers[sk] = server
-		item.instance.ParentID = server.ID
-		ik := instanceKey(sk, item.instance.Name)
-		instance, err := s.saveImportedObject(ctx, tx, idx.instances[ik], item.instance, &result)
-		if err != nil {
-			return ImportResult{}, err
+		if item.isOracle() {
+			item.database.ParentID = server.ID
+		} else {
+			item.instance.ParentID = server.ID
+			instance, err := s.saveImportedObject(ctx, tx, idx.instances[ik], item.instance, &result)
+			if err != nil {
+				return ImportResult{}, err
+			}
+			idx.instances[ik] = instance
+			item.database.ParentID = instance.ID
 		}
-		idx.instances[ik] = instance
-		item.database.ParentID = instance.ID
-		dk := databaseKey(ik, item.database.Name)
 		db, err := s.saveImportedObject(ctx, tx, idx.databases[dk], item.database, &result)
 		if err != nil {
 			return ImportResult{}, err

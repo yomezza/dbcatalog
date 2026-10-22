@@ -12,6 +12,7 @@ interface Props {
   onConnect: () => void;
   onEdit: () => void;
   onAdd: () => void;
+  onAddOracle: () => void;
   onHistory: () => void;
   onPolicy: () => void;
   onFavorite: () => void;
@@ -48,7 +49,7 @@ export function ContextMenu(p: Props) {
       aria-label="Действия с объектом"
       style={{
         left: Math.max(8, Math.min(p.x, window.innerWidth - 270)),
-        top: Math.max(40, Math.min(p.y, window.innerHeight - 390)),
+        top: Math.max(40, Math.min(p.y, window.innerHeight - 430)),
       }}
       onKeyDown={(e) => {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -77,6 +78,11 @@ export function ContextMenu(p: Props) {
           <button role="menuitem" onClick={action(p.onEdit)}>
             Изменить
           </button>
+          {p.object.kind === "server" && (
+            <button role="menuitem" onClick={action(p.onAddOracle)}>
+              Добавить базу Oracle
+            </button>
+          )}
           {p.object.kind !== "database" && (
             <button role="menuitem" onClick={action(p.onAdd)}>
               {p.object.kind === "server"

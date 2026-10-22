@@ -61,7 +61,7 @@ func TestCatalogFieldsDictionariesAndPersonalFavorites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	instance, err := s.SaveObject(Object{Kind: "instance", Name: "instance", ParentID: server.ID, DBMS: "Oracle Database"})
+	instance, err := s.SaveObject(Object{Kind: "instance", Name: "instance", ParentID: server.ID, DBMS: "PostgreSQL"})
 	if err != nil {
 		t.Fatal(err)
 	}

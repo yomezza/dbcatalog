@@ -96,3 +96,7 @@ func (a *App) GetNotifications(page int, unreadOnly bool) (application.Notificat
 func (a *App) MarkNotificationsRead(ids []string, all bool) error {
 	return a.service.MarkNotificationsRead(ids, all)
 }
+
+func (a *App) RestoreObject(kind, id string, version, historyID int64, side string) (application.Object, error) {
+	return a.service.RestoreObject(kind, id, version, historyID, side)
+}

@@ -230,6 +230,13 @@ export interface Statistics {
   generatedAt: string;
 }
 interface Backend {
+  RestoreObject(
+    kind: Kind,
+    id: string,
+    version: number,
+    historyId: number,
+    side: "before" | "after",
+  ): Promise<CatalogObject>;
   GetStatistics(): Promise<Statistics>;
   GetNotifications(
     page: number,

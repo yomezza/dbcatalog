@@ -51,8 +51,10 @@ interface Props {
   favorite: boolean;
   onEdit: () => void;
   onAdd: () => void;
+  onAddOracle: () => void;
   onFavorite: () => void;
   onHistory: () => void;
+  onRestore: (h: HistoryEntry, side: "before" | "after") => void;
   onDelete: () => void;
   onPolicy: (o: CatalogObject) => void;
 }
@@ -82,6 +84,7 @@ export function ObjectCard(p: Props) {
       : o.kind === "instance"
         ? ["dbmsVersion", "port"]
         : [
+            ...(o.dbms === "Oracle Database" ? ["dbmsVersion", "port"] : []),
             "attributes.informationSystem",
             "purpose",
             "attributes.personalData",
@@ -119,7 +122,9 @@ export function ObjectCard(p: Props) {
       <div className="object-flags">
         {o.environment && <ValueBadge value={o.environment} />}
         <ValueBadge value={o.status} />
-        {o.kind === "instance" && o.dbms && <ValueBadge value={o.dbms} />}
+        {(o.kind === "instance" || o.dbms === "Oracle Database") && o.dbms && (
+          <ValueBadge value={o.dbms} />
+        )}
       </div>
       {placement.some((k) => objectValue(o, k)) && (
         <section className="card-section">
@@ -141,6 +146,9 @@ export function ObjectCard(p: Props) {
                   ![
                     "attributes.osVersion",
                     "attributes.osFamily",
+                    ...(o.dbms === "Oracle Database"
+                      ? ["dbmsVersion", "port"]
+                      : []),
                     "attributes.informationSystem",
                   ].includes(k)
                 }
@@ -187,6 +195,11 @@ export function ObjectCard(p: Props) {
             <button disabled={p.busy} onClick={p.onEdit}>
               Изменить
             </button>
+            {o.kind === "server" && (
+              <button disabled={p.busy} onClick={p.onAddOracle}>
+                + База Oracle
+              </button>
+            )}
             {o.kind !== "database" && (
               <button disabled={p.busy} onClick={p.onAdd}>
                 + {o.kind === "server" ? "Экземпляр СУБД" : "База данных"}
@@ -222,6 +235,26 @@ export function ObjectCard(p: Props) {
               <small>
                 {h.actor} · {new Date(h.createdAt).toLocaleString("ru")}
               </small>
+              {p.canDelete && (
+                <div className="history-restore-actions">
+                  {h.before && (
+                    <button
+                      disabled={p.busy}
+                      onClick={() => p.onRestore(h, "before")}
+                    >
+                      Восстановить «Было»
+                    </button>
+                  )}
+                  {h.after && (
+                    <button
+                      disabled={p.busy}
+                      onClick={() => p.onRestore(h, "after")}
+                    >
+                      Восстановить «Стало»
+                    </button>
+                  )}
+                </div>
+              )}
               {Object.entries(fieldLabels)
                 .filter(
                   ([k]) => objectValue(h.before, k) !== objectValue(h.after, k),

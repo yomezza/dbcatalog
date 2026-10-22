@@ -72,7 +72,7 @@ export function SettingsPanel({
             </button>
           </section>
         )}
-        <p className="app-version">CatalogDB 0.4.0</p>
+        <p className="app-version">CatalogDB 0.5.0</p>
       </div>
     </>
   );

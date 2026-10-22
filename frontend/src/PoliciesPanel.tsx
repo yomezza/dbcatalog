@@ -39,7 +39,7 @@ export function effectivePolicy(object: CatalogObject, policies: Policy[]) {
     (p) => p.kind === object.kind && p.objectId === object.id,
   );
   const inherited =
-    !direct && object.kind === "database"
+    !direct && object.kind === "database" && object.dbms !== "Oracle Database"
       ? policies.find(
           (p) => p.kind === "instance" && p.objectId === object.parentId,
         )
@@ -84,12 +84,15 @@ export function BackupCard({
             <dt>Срок хранения</dt>
             <dd>{policy.retentionDays} дней</dd>
           </dl>
-          {object.kind === "database" && !inherited && !policy.enabled && (
-            <p className="muted">
-              Отключённая политика БД подавляет наследование политики
-              экземпляра.
-            </p>
-          )}
+          {object.kind === "database" &&
+            object.dbms !== "Oracle Database" &&
+            !inherited &&
+            !policy.enabled && (
+              <p className="muted">
+                Отключённая политика БД подавляет наследование политики
+                экземпляра.
+              </p>
+            )}
         </>
       ) : (
         <p className="muted">Политика не назначена.</p>
@@ -168,7 +171,8 @@ export function PoliciesPanel({
       <div className="info">
         Политика БД имеет приоритет над политикой экземпляра, включая
         отключённую политику. CatalogDB учитывает настройки и не запускает
-        резервное копирование.
+        резервное копирование. Для Oracle политика назначается непосредственно
+        базе.
       </div>
       <div className="tree-tools">
         <input

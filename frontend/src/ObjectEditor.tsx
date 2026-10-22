@@ -85,6 +85,7 @@ export function ObjectEditor({
   onSave,
 }: Props) {
   const a = { ...emptyAttributes(), ...o.attributes };
+  const oracle = o.kind === "database" && o.dbms === "Oracle Database";
   const field = (key: keyof CatalogObject, value: unknown) =>
     onChange({ ...o, [key]: value });
   const attr = <K extends keyof Attributes>(key: K, value: Attributes[K]) =>
@@ -156,10 +157,32 @@ export function ObjectEditor({
               <Field label="Тип эксплуатации">
                 {choice("environment", "environment")}
               </Field>
+              {o.kind === "database" && (
+                <Field label="Размещение БД">
+                  <select
+                    value={oracle ? "oracle" : "instance"}
+                    onChange={(e) =>
+                      onChange({
+                        ...o,
+                        dbms:
+                          e.target.value === "oracle" ? "Oracle Database" : "",
+                        dbmsVersion: "",
+                        port: null,
+                        parentId: "",
+                      })
+                    }
+                  >
+                    <option value="instance">В экземпляре СУБД</option>
+                    <option value="oracle">Oracle Database — на сервере</option>
+                  </select>
+                </Field>
+              )}
               {o.kind !== "server" && (
                 <Field
                   label={
-                    o.kind === "instance" ? "Сервер *" : "Экземпляр СУБД *"
+                    o.kind === "instance" || oracle
+                      ? "Сервер *"
+                      : "Экземпляр СУБД *"
                   }
                 >
                   <select
@@ -168,7 +191,7 @@ export function ObjectEditor({
                     onChange={(e) => field("parentId", e.target.value)}
                   >
                     <option value="">Выберите объект</option>
-                    {(o.kind === "instance"
+                    {(o.kind === "instance" || oracle
                       ? catalog.servers
                       : catalog.instances
                     ).map((p) => (
@@ -227,7 +250,14 @@ export function ObjectEditor({
               {o.kind === "instance" && (
                 <>
                   <Field label="Тип СУБД *">
-                    {choice("dbms", "dbms", true)}
+                    <Choice
+                      value={o.dbms}
+                      options={(lookups.dbms ?? []).filter(
+                        (v) => v !== "Oracle Database",
+                      )}
+                      onChange={(v) => field("dbms", v)}
+                      required
+                    />
                   </Field>
                   <Field label="Версия СУБД">
                     <input
@@ -253,6 +283,30 @@ export function ObjectEditor({
               )}
               {o.kind === "database" && (
                 <>
+                  {oracle && (
+                    <Field label="Порт Oracle">
+                      <input
+                        type="number"
+                        min={1}
+                        max={65535}
+                        value={o.port ?? ""}
+                        onChange={(e) =>
+                          field(
+                            "port",
+                            e.target.value ? Number(e.target.value) : null,
+                          )
+                        }
+                      />
+                    </Field>
+                  )}
+                  {oracle && (
+                    <Field label="Версия Oracle Database">
+                      <input
+                        value={o.dbmsVersion}
+                        onChange={(e) => field("dbmsVersion", e.target.value)}
+                      />
+                    </Field>
+                  )}
                   <Field label="Информационная система">
                     <input
                       value={a.informationSystem}
