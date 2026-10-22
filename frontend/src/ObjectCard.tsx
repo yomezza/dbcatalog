@@ -1,4 +1,4 @@
-import type { Catalog, CatalogObject, HistoryEntry, Policy } from "./api";
+import type { Catalog, CatalogObject, Policy } from "./api";
 import { objectPath } from "./objectPath";
 import { objectValue, fieldLabels } from "./objectFields";
 import { ValueBadge } from "./ValueBadge";
@@ -44,7 +44,6 @@ interface Props {
   object: CatalogObject | null;
   catalog: Catalog;
   policies: Policy[];
-  history: HistoryEntry[] | null;
   busy: boolean;
   canEdit: boolean;
   canDelete: boolean;
@@ -54,7 +53,7 @@ interface Props {
   onAddOracle: () => void;
   onFavorite: () => void;
   onHistory: () => void;
-  onRestore: (h: HistoryEntry, side: "before" | "after") => void;
+  onVersions: () => void;
   onDelete: () => void;
   onPolicy: (o: CatalogObject) => void;
 }
@@ -211,65 +210,16 @@ export function ObjectCard(p: Props) {
           История изменений
         </button>
         {p.canDelete && (
+          <button disabled={p.busy} onClick={p.onVersions}>
+            Версии записи
+          </button>
+        )}
+        {p.canDelete && (
           <button className="danger" disabled={p.busy} onClick={p.onDelete}>
             Удалить
           </button>
         )}
       </div>
-      {p.history && (
-        <div className="history">
-          <h3>История изменений</h3>
-          {p.history.length === 0 && <p>Нет записей.</p>}
-          {p.history.map((h) => (
-            <article key={h.id}>
-              <strong>
-                {(
-                  {
-                    create: "Создание",
-                    update: "Изменение",
-                    delete: "Удаление",
-                    restore: "Восстановление",
-                  } as Record<string, string>
-                )[h.action] ?? h.action}
-              </strong>
-              <small>
-                {h.actor} · {new Date(h.createdAt).toLocaleString("ru")}
-              </small>
-              {p.canDelete && (
-                <div className="history-restore-actions">
-                  {h.before && (
-                    <button
-                      disabled={p.busy}
-                      onClick={() => p.onRestore(h, "before")}
-                    >
-                      Восстановить «Было»
-                    </button>
-                  )}
-                  {h.after && (
-                    <button
-                      disabled={p.busy}
-                      onClick={() => p.onRestore(h, "after")}
-                    >
-                      Восстановить «Стало»
-                    </button>
-                  )}
-                </div>
-              )}
-              {Object.entries(fieldLabels)
-                .filter(
-                  ([k]) => objectValue(h.before, k) !== objectValue(h.after, k),
-                )
-                .map(([k, label]) => (
-                  <p key={k}>
-                    <b>{label}: </b>
-                    {objectValue(h.before, k) || "—"} →{" "}
-                    {objectValue(h.after, k) || "—"}
-                  </p>
-                ))}
-            </article>
-          ))}
-        </div>
-      )}
     </section>
   );
 }

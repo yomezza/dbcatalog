@@ -14,6 +14,7 @@ interface Props {
   onAdd: () => void;
   onAddOracle: () => void;
   onHistory: () => void;
+  onVersions: () => void;
   onPolicy: () => void;
   onFavorite: () => void;
   onDelete: () => void;
@@ -49,7 +50,7 @@ export function ContextMenu(p: Props) {
       aria-label="Действия с объектом"
       style={{
         left: Math.max(8, Math.min(p.x, window.innerWidth - 270)),
-        top: Math.max(40, Math.min(p.y, window.innerHeight - 430)),
+        top: Math.max(40, Math.min(p.y, window.innerHeight - 465)),
       }}
       onKeyDown={(e) => {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -100,6 +101,11 @@ export function ContextMenu(p: Props) {
       <button role="menuitem" onClick={action(p.onHistory)}>
         История изменений
       </button>
+      {p.canDelete && (
+        <button role="menuitem" onClick={action(p.onVersions)}>
+          Версии записи
+        </button>
+      )}
       <button role="menuitem" onClick={action(p.onFavorite)}>
         {p.favorite ? "Убрать из избранного" : "Добавить в избранное"}
       </button>

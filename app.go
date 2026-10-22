@@ -100,3 +100,19 @@ func (a *App) MarkNotificationsRead(ids []string, all bool) error {
 func (a *App) RestoreObject(kind, id string, version, historyID int64, side string) (application.Object, error) {
 	return a.service.RestoreObject(kind, id, version, historyID, side)
 }
+
+func (a *App) SetImportRowsExcluded(token string, rows []int, exclude bool) (application.ImportPreview, error) {
+	return a.service.SetImportRowsExcluded(token, rows, exclude)
+}
+func (a *App) GetVersions(kind, id string, page int) (application.VersionPage, error) {
+	return a.service.GetVersions(kind, id, page)
+}
+func (a *App) GetRecordVersion(kind, id string, version int64) (any, error) {
+	return a.service.GetRecordVersion(kind, id, version)
+}
+func (a *App) RestoreVersion(kind, id string, currentVersion, targetVersion int64) error {
+	return a.service.RestoreVersion(kind, id, currentVersion, targetVersion)
+}
+func (a *App) GetHistoryPage(kind, id string, page int) (application.HistoryPage, error) {
+	return a.service.GetHistoryPage(kind, id, page)
+}

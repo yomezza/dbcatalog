@@ -1301,3 +1301,85 @@ aside {
     background: Canvas;
   }
 }
+
+.record-history-dialog,
+.versions-dialog {
+  width: min(1000px, 94vw);
+  max-width: 1000px;
+  max-height: 88vh;
+  overflow: auto;
+}
+.history-entries {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+.history-entries article {
+  border: 1px solid #e0e8ef;
+  border-radius: 7px;
+  padding: 16px;
+  min-width: 0;
+}
+.history-event-heading {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+}
+.history-event-heading > span {
+  font-size: 11px;
+  color: #6c8798;
+}
+.snapshot-table,
+.version-list {
+  overflow: auto;
+  margin: 14px 0;
+  max-width: 100%;
+}
+.snapshot-table table {
+  table-layout: fixed;
+  width: 100%;
+}
+.snapshot-table td,
+.snapshot-table th {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.snapshot-table th:first-child {
+  width: 24%;
+}
+.snapshot-table td {
+  line-height: 1.6;
+}
+.version-list td {
+  font-size: 11px;
+}
+.selected-version {
+  background: #edf7fa;
+}
+.version-preview {
+  border-top: 1px solid #e1ebf1;
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.excluded-rows {
+  border: 1px solid #e1e8ed;
+  border-radius: 7px;
+  padding: 14px;
+  margin: 18px 0;
+  background: #f8fafc;
+}
+.excluded-rows > summary {
+  cursor: pointer;
+  color: #537284;
+  font-weight: 600;
+  font-size: 12px;
+}
+.exclude-row {
+  margin-left: 6px;
+  color: #a25762;
+}
+html {
+  scrollbar-gutter: stable;
+}

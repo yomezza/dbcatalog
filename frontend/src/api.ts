@@ -86,6 +86,9 @@ export interface ImportRowPreview {
   values: string[];
 }
 export interface ImportPreview {
+  originalTotal: number;
+  excluded: number;
+  excludedRows: ImportRowPreview[];
   token: string;
   sheet: string;
   columns: number;
@@ -97,6 +100,7 @@ export interface ImportPreview {
   rows: ImportRowPreview[];
 }
 export interface ImportResult {
+  excluded: number;
   serversCreated: number;
   instancesCreated: number;
   databasesCreated: number;
@@ -229,7 +233,62 @@ export interface Statistics {
   environments: Distribution[];
   generatedAt: string;
 }
+export type RecordKind = Kind | "policy";
+export interface RecordTarget {
+  kind: RecordKind;
+  id: string;
+  name: string;
+}
+export type RecordSnapshot = CatalogObject | Policy;
+export interface RecordHistoryEntry {
+  id: number;
+  action: string;
+  actor: string;
+  createdAt: string;
+  before: RecordSnapshot | null;
+  after: RecordSnapshot | null;
+}
+export interface HistoryPage {
+  items: RecordHistoryEntry[];
+  total: number;
+  page: number;
+}
+export interface RecordVersion {
+  version: number;
+  action: string;
+  actor: string;
+  createdAt: string;
+}
+export interface VersionPage {
+  items: RecordVersion[];
+  total: number;
+  page: number;
+  currentVersion: number;
+  exists: boolean;
+}
 interface Backend {
+  SetImportRowsExcluded(
+    token: string,
+    rows: number[],
+    exclude: boolean,
+  ): Promise<ImportPreview>;
+  GetHistoryPage(
+    kind: RecordKind,
+    id: string,
+    page: number,
+  ): Promise<HistoryPage>;
+  GetVersions(kind: RecordKind, id: string, page: number): Promise<VersionPage>;
+  GetRecordVersion(
+    kind: RecordKind,
+    id: string,
+    version: number,
+  ): Promise<RecordSnapshot>;
+  RestoreVersion(
+    kind: RecordKind,
+    id: string,
+    currentVersion: number,
+    targetVersion: number,
+  ): Promise<void>;
   RestoreObject(
     kind: Kind,
     id: string,

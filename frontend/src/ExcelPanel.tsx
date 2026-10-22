@@ -6,6 +6,7 @@ import {
   type ImportRowPreview,
   type Lookups,
 } from "./api";
+import { ExcludedRows } from "./ExcludedRows";
 import { ImportRowEditor } from "./ImportRowEditor";
 interface Props {
   lookups: Lookups;
@@ -33,6 +34,22 @@ export function ExcelPanel({
     [page, setPage] = useState(0),
     [editing, setEditing] = useState<ImportRowPreview | null>(null),
     [downloadNotice, setDownloadNotice] = useState("");
+  async function changeRows(rows: number[], exclude: boolean) {
+    if (!preview) return;
+    await run(async () => {
+      const next = await api().SetImportRowsExcluded(
+        preview.token,
+        rows,
+        exclude,
+      );
+      setPreview(next);
+      setEditing(null);
+      setResult(null);
+      setSkipInvalid(false);
+      setCatalogOnly(false);
+      setPage(0);
+    });
+  }
   async function fileSelected(file: File) {
     setPreview(null);
     setResult(null);
@@ -113,7 +130,11 @@ export function ExcelPanel({
                   Формат: <b>{preview.columns} колонок</b>
                 </span>
                 <span>
-                  Строк: <b>{preview.total}</b>
+                  К импорту: <b>{preview.total}</b> из{" "}
+                  {preview.originalTotal ?? preview.total}
+                </span>
+                <span>
+                  Исключено: <b>{preview.excluded ?? 0}</b>
                 </span>
                 <span>
                   Корректных: <b>{preview.valid}</b>
@@ -146,6 +167,22 @@ export function ExcelPanel({
                 />
                 Показывать только ошибки
               </label>
+              <div className="actions">
+                <button
+                  disabled={busy || preview.total === preview.valid}
+                  onClick={() =>
+                    void changeRows(
+                      preview.rows
+                        .filter((r) => r.errors.length > 0)
+                        .map((r) => r.row),
+                      true,
+                    )
+                  }
+                >
+                  Исключить все ошибочные строки (
+                  {preview.total - preview.valid})
+                </button>
+              </div>
               <div className="import-table">
                 <table>
                   <thead>
@@ -177,6 +214,13 @@ export function ExcelPanel({
                             >
                               {r.errors.length ? "Исправить" : "Изменить"}
                             </button>
+                            <button
+                              className="exclude-row"
+                              disabled={busy}
+                              onClick={() => void changeRows([r.row], true)}
+                            >
+                              Исключить строку {r.row}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -200,6 +244,17 @@ export function ExcelPanel({
                   →
                 </button>
               </div>
+              <ExcludedRows
+                rows={preview.excludedRows ?? []}
+                busy={busy}
+                onRestore={(ids) => void changeRows(ids, false)}
+              />
+              {preview.total === 0 && (
+                <p className="info">
+                  Все строки исключены. Верните нужные строки или выберите
+                  другой файл.
+                </p>
+              )}
               {preview.valid !== preview.total && (
                 <label className="check">
                   <input
@@ -270,7 +325,8 @@ export function ExcelPanel({
               экземпляров: {result.instancesCreated}, БД:{" "}
               {result.databasesCreated}. Обновлено объектов:{" "}
               {result.objectsUpdated}. Пропущено ошибочных строк:{" "}
-              {result.skipped}.
+              {result.skipped}. Исключено перед импортом: {result.excluded ?? 0}
+              .
             </div>
           )}
         </section>

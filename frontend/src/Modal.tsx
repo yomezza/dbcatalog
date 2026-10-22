@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+const activeDialogs: HTMLElement[] = [];
+let previousOverflow = "";
 export function Modal({
   title,
   onClose,
@@ -20,8 +22,17 @@ export function Modal({
   locked.current = busy;
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
+    const element = ref.current;
+    if (element) {
+      if (!activeDialogs.length) {
+        previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+      }
+      activeDialogs.push(element);
+      element.focus({ preventScroll: true });
+    }
     const key = (e: KeyboardEvent) => {
+      if (activeDialogs[activeDialogs.length - 1] !== element) return;
       if (e.key === "Escape" && !locked.current) {
         e.preventDefault();
         close.current();
@@ -36,6 +47,11 @@ export function Modal({
           last = items[items.length - 1];
         if (!first) {
           e.preventDefault();
+          return;
+        }
+        if (!ref.current?.contains(document.activeElement)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
           return;
         }
         if (
@@ -58,7 +74,13 @@ export function Modal({
     document.addEventListener("keydown", key);
     return () => {
       document.removeEventListener("keydown", key);
-      previous?.focus();
+      if (element) {
+        const index = activeDialogs.indexOf(element);
+        if (index >= 0) activeDialogs.splice(index, 1);
+      }
+      if (!activeDialogs.length)
+        document.body.style.overflow = previousOverflow;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
   return (

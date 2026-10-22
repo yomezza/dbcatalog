@@ -87,6 +87,23 @@ func (s *Service) ListPolicies() ([]Policy, error) {
 func (s *Service) SavePolicy(p Policy) (Policy, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	tx, err := s.readTransaction(ctx, true, false)
+	if err != nil {
+		return p, err
+	}
+	defer tx.Rollback(ctx)
+	result, err := s.savePolicyTx(ctx, tx, p, false)
+	if err != nil {
+		return p, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return p, importDatabaseError(err)
+	}
+	return result, nil
+}
+func (s *Service) savePolicyTx(ctx context.Context, tx pgx.Tx, p Policy, restore bool) (Policy, error) {
 	if p.Kind != "instance" && p.Kind != "database" {
 		return p, errors.New("Политика назначается экземпляру или базе данных")
 	}
@@ -118,13 +135,7 @@ func (s *Service) SavePolicy(p Policy) (Policy, error) {
 	if p.Enabled && (p.BackupType == "Не указано" || p.Scheduler == "Не указано" || strings.TrimSpace(p.Schedule) == "" || strings.TrimSpace(p.Storage) == "" || p.RetentionDays == 0) {
 		return p, errors.New("Для включённой политики укажите тип РК, планировщик, расписание, путь и срок хранения")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	tx, err := s.readTransaction(ctx, true, false)
-	if err != nil {
-		return p, err
-	}
-	defer tx.Rollback(ctx)
+	var err error
 	var before any
 	action := "create"
 	if p.ID != "" {
@@ -150,6 +161,9 @@ func (s *Service) SavePolicy(p Policy) (Policy, error) {
 			return p, err
 		}
 	}
+	if restore {
+		action = "restore"
+	}
 	var instanceID, databaseID any
 	if p.Kind == "instance" {
 		instanceID = p.ObjectID
@@ -167,9 +181,6 @@ func (s *Service) SavePolicy(p Policy) (Policy, error) {
 	}
 	p.Version++
 	if err = history(ctx, tx, s.user.ID, action, "policy", p.ID, before, p); err != nil {
-		return p, importDatabaseError(err)
-	}
-	if err = tx.Commit(ctx); err != nil {
 		return p, importDatabaseError(err)
 	}
 	return p, nil

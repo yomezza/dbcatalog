@@ -23,6 +23,9 @@ type ImportRowPreview struct {
 	Values   []string `json:"values"`
 }
 type ImportPreview struct {
+	OriginalTotal  int                `json:"originalTotal"`
+	Excluded       int                `json:"excluded"`
+	ExcludedRows   []ImportRowPreview `json:"excludedRows"`
 	Token          string             `json:"token"`
 	Sheet          string             `json:"sheet"`
 	Columns        int                `json:"columns"`
@@ -34,6 +37,7 @@ type ImportPreview struct {
 	Rows           []ImportRowPreview `json:"rows"`
 }
 type ImportResult struct {
+	Excluded         int `json:"excluded"`
 	ServersCreated   int `json:"serversCreated"`
 	InstancesCreated int `json:"instancesCreated"`
 	DatabasesCreated int `json:"databasesCreated"`
@@ -54,6 +58,7 @@ type ImportRowEdit struct {
 	Values []string `json:"values"`
 }
 type importPlan struct {
+	excluded map[int]bool
 	workbook spreadsheet.Workbook
 	preview  ImportPreview
 	items    []importItem

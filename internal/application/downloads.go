@@ -82,6 +82,9 @@ func (s *Service) ExportImportPreview(token string) (downloads.Entry, error) {
 	}
 	rows := [][21]string{}
 	for _, row := range plan.workbook.Rows {
+		if plan.excluded[row.Number] {
+			continue
+		}
 		var values [21]string
 		copy(values[:], row.Values[:21])
 		rows = append(rows, values)

@@ -43,14 +43,34 @@ func (s *Service) PreviewExcel(encoded string) (ImportPreview, error) {
 	return plan.preview, nil
 }
 func (s *Service) buildImportPlan(ctx context.Context, tx pgx.Tx, wb spreadsheet.Workbook) (*importPlan, error) {
+	return s.buildImportPlanExcluded(ctx, tx, wb, map[int]bool{})
+}
+func (s *Service) buildImportPlanExcluded(ctx context.Context, tx pgx.Tx, wb spreadsheet.Workbook, excluded map[int]bool) (*importPlan, error) {
 	idx, err := loadIndex(ctx, tx)
 	if err != nil {
 		return nil, importDatabaseError(err)
 	}
-	plan := &importPlan{workbook: wb, preview: ImportPreview{Token: security.ID(), Sheet: wb.Sheet, Columns: wb.Columns, Total: len(wb.Rows), Ignored: wb.IgnoredRows, SecretsIgnored: wb.SecretRows, BackupRows: wb.BackupRows, Rows: []ImportRowPreview{}}, versions: map[string]objectStamp{}, expires: time.Now().Add(10 * time.Minute), userID: s.user.ID}
+	plan := &importPlan{excluded: excluded, workbook: wb, preview: ImportPreview{OriginalTotal: len(wb.Rows), ExcludedRows: []ImportRowPreview{}, Token: security.ID(), Sheet: wb.Sheet, Columns: wb.Columns, Total: 0, Ignored: wb.IgnoredRows, SecretsIgnored: 0, BackupRows: 0, Rows: []ImportRowPreview{}}, versions: map[string]objectStamp{}, expires: time.Now().Add(10 * time.Minute), userID: s.user.ID}
 	seenServers, seenInstances, seenDB := map[string]Object{}, map[string]Object{}, map[string]bool{}
 	firstServerRow := map[string]int{}
 	for _, row := range wb.Rows {
+		if excluded[row.Number] {
+			plan.preview.Excluded++
+			plan.preview.ExcludedRows = append(plan.preview.ExcludedRows, ImportRowPreview{Row: row.Number, Server: row.Values[4], Instance: row.Values[1], Database: row.Values[0], Errors: []string{}, Values: append([]string{}, row.Values[:21]...)})
+			continue
+		}
+		plan.preview.Total++
+		if row.HasSecrets {
+			plan.preview.SecretsIgnored++
+		}
+		if wb.Columns == 28 {
+			for _, v := range row.Values[21:26] {
+				if v != "" {
+					plan.preview.BackupRows++
+					break
+				}
+			}
+		}
 		item := objectsFromRow(row)
 		validateImportItem(ctx, tx, &item)
 		sk, ik, dk := item.keys()
@@ -124,7 +144,7 @@ func (s *Service) RevalidateExcel(token string, edits []ImportRowEdit) (ImportPr
 	}
 	for _, edit := range edits {
 		i, ok := positions[edit.Row]
-		if !ok || seen[edit.Row] || len(edit.Values) != 21 {
+		if !ok || seen[edit.Row] || old.excluded[edit.Row] || len(edit.Values) != 21 {
 			return ImportPreview{}, errors.New("Некорректная строка исправлений: требуется 21 поле каталога")
 		}
 		seen[edit.Row] = true
@@ -135,7 +155,7 @@ func (s *Service) RevalidateExcel(token string, edits []ImportRowEdit) (ImportPr
 			wb.Rows[i].Values[c] = strings.TrimSpace(v)
 		}
 	}
-	next, err := s.buildImportPlan(ctx, tx, wb)
+	next, err := s.buildImportPlanExcluded(ctx, tx, wb, old.excluded)
 	if err != nil {
 		return ImportPreview{}, err
 	}
@@ -150,6 +170,7 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 	if plan == nil || plan.preview.Token != token || time.Now().After(plan.expires) || s.user == nil || plan.userID != s.user.ID {
 		return result, errors.New("Предпросмотр устарел. Повторно выберите файл")
 	}
+	result.Excluded = plan.preview.Excluded
 	if plan.preview.Columns == 28 && !catalogOnly {
 		return result, errors.New("Подтвердите импорт только каталога: политики РК и пароли архива из этого файла не переносятся")
 	}

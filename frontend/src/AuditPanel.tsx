@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type AuditEvent, type AuditFilter, type AuditPage } from "./api";
+import type { RecordTarget, RecordKind } from "./api";
 import { Modal } from "./Modal";
 import { Field } from "./components";
 const entityLabels: Record<string, string> = {
@@ -17,6 +18,10 @@ const detailLabels: Record<string, string> = {
   instances: "Экземпляры СУБД",
   databases: "Базы данных",
   policies: "Политики РК",
+  sourceVersion: "Выбранная версия",
+  previousVersion: "Предыдущая версия",
+  resultVersion: "Созданная версия",
+  reason: "Причина",
 };
 const initial: AuditFilter = {
   query: "",
@@ -38,9 +43,13 @@ export function dateBoundary(date: string, exclusiveEnd = false): string {
 export function AuditPanel({
   busy,
   run,
+  onRecordHistory,
+  onRecordVersions,
 }: {
   busy: boolean;
   run: (work: () => Promise<void>) => Promise<void>;
+  onRecordHistory: (target: RecordTarget) => void;
+  onRecordVersions: (target: RecordTarget) => void;
 }) {
   const [query, setQuery] = useState(""),
     [actor, setActor] = useState(""),
@@ -260,6 +269,41 @@ export function AuditPanel({
               </div>
             ))}
           </dl>
+          {selected.objectId &&
+            ["server", "instance", "database", "policy"].includes(
+              selected.entity,
+            ) && (
+              <div className="actions">
+                <button
+                  onClick={() => {
+                    const target = {
+                      kind: selected.entity as RecordKind,
+                      id: selected.objectId,
+                      name:
+                        selected.objectName || entityLabels[selected.entity],
+                    };
+                    setSelected(null);
+                    onRecordHistory(target);
+                  }}
+                >
+                  История объекта
+                </button>
+                <button
+                  onClick={() => {
+                    const target = {
+                      kind: selected.entity as RecordKind,
+                      id: selected.objectId,
+                      name:
+                        selected.objectName || entityLabels[selected.entity],
+                    };
+                    setSelected(null);
+                    onRecordVersions(target);
+                  }}
+                >
+                  Версии объекта
+                </button>
+              </div>
+            )}
         </Modal>
       )}
     </>

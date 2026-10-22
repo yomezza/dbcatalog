@@ -1010,83 +1010,342 @@ test("branded scrollbar rules cover document, dark navigation, dialogs and texta
   expect(["rgb(53, 85, 105)", "rgb(80, 130, 152)"]).toContain(styles[1].thumb);
   expect(styles[2].track).toBe("rgb(233, 240, 244)");
 });
-test("admin restores a historical object state only after reviewing and confirming", async ({
+
+test("admin selects an explicit version, reviews it and returns as a new version", async ({
   page,
 }) => {
   await login(page);
   await page.evaluate(() => {
-    const app = window.go!.main.App;
-    const get = app.GetCatalog;
-    let restored = false;
+    const app = window.go!.main.App,
+      get = app.GetCatalog;
+    let current = 3;
     Object.assign(app, {
-      GetHistory: async () => [
-        {
-          id: 7,
-          action: "update",
+      GetVersions: async () => ({
+        items: Array.from({ length: current }, (_, i) => ({
+          version: current - i,
+          action: current - i === 1 ? "create" : "update",
           actor: "admin",
           createdAt: new Date().toISOString(),
-          before: {
-            id: "d1",
-            kind: "database",
-            parentId: "i1",
-            name: "old-payroll",
-            attributes: { administration: [] },
-          },
-          after: {
-            id: "d1",
-            kind: "database",
-            parentId: "i1",
-            name: "payroll",
-            attributes: { administration: [] },
-          },
-        },
-      ],
-      RestoreObject: async (
+        })),
+        total: current,
+        page: 0,
+        currentVersion: current,
+        exists: true,
+      }),
+      GetRecordVersion: async (_kind: string, _id: string, version: number) => {
+        const c = await get();
+        return {
+          ...c.databases[0],
+          name: version === 1 || version === 4 ? "old-payroll" : "payroll",
+          version,
+        };
+      },
+      RestoreVersion: async (
         kind: string,
         id: string,
-        version: number,
-        historyId: number,
-        side: string,
+        from: number,
+        to: number,
       ) => {
-        if (
-          kind !== "database" ||
-          id !== "d1" ||
-          version !== 1 ||
-          historyId !== 7 ||
-          side !== "before"
-        )
+        if (kind !== "database" || id !== "d1" || from !== 3 || to !== 1)
           throw new Error("Неверное подтверждение");
-        restored = true;
-        const c = await get();
-        return { ...c.databases[0], name: "old-payroll", version: 2 };
+        current = 4;
       },
       GetCatalog: async () => {
         const c = await get();
         return {
           ...c,
-          databases: c.databases.map((d) =>
-            restored ? { ...d, name: "old-payroll", version: 2 } : d,
-          ),
+          databases: c.databases.map((d) => ({
+            ...d,
+            name: current === 4 ? "old-payroll" : d.name,
+            version: current,
+          })),
         };
       },
     });
   });
   await page.locator(".tree-node").filter({ hasText: "payroll" }).click();
   await page
-    .getByRole("button", { name: "История изменений", exact: true })
+    .getByRole("button", { name: "Версии записи", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Восстановить «Было»", exact: true })
+  const dialog = page.locator(".versions-dialog");
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Просмотреть v1", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", {
-    name: "Восстановить состояние «payroll»?",
-  });
   await expect(
     dialog.getByRole("cell", { name: "old-payroll", exact: true }),
   ).toBeVisible();
   await dialog
-    .getByRole("button", { name: "Подтвердить восстановление", exact: true })
+    .getByRole("button", { name: "Вернуться к v1", exact: true })
     .click();
-  await expect(dialog).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", {
+      name: "Подтвердить возврат к v1",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Подтвердить возврат к v1", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText(
+    "Создана новая версия",
+  );
+  await expect(
+    dialog.getByText("Текущая версия: v4", { exact: true }),
+  ).toBeVisible();
+  await dialog.screenshot({ path: "/tmp/catalogdb-versions-060.png" });
+  await dialog
+    .getByRole("button", { name: "Закрыть окно", exact: true })
+    .click();
   await expect(page.locator(".object-card h2")).toHaveText("old-payroll");
+});
+test("import rows can be excluded, returned and bulk excluded before applying", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const rows = [
+      {
+        row: 2,
+        server: "host-a",
+        instance: "pg-main",
+        database: "valid",
+        errors: [],
+        values: Array(21).fill(""),
+      },
+      {
+        row: 3,
+        server: "",
+        instance: "default",
+        database: "",
+        errors: ["Не заполнено: SID"],
+        values: Array(21).fill(""),
+      },
+      {
+        row: 4,
+        server: "",
+        instance: "default",
+        database: "bad",
+        errors: ["Не заполнено: Имя сервера"],
+        values: Array(21).fill(""),
+      },
+    ];
+    const excluded = new Set<number>();
+    let revision = 0;
+    const preview = () => ({
+      token: `r${revision}`,
+      sheet: "Каталог",
+      columns: 21,
+      originalTotal: 3,
+      total: 3 - excluded.size,
+      valid: rows.filter((r) => !excluded.has(r.row) && !r.errors.length)
+        .length,
+      excluded: excluded.size,
+      excludedRows: rows.filter((r) => excluded.has(r.row)),
+      ignored: 0,
+      secretsIgnored: 0,
+      backupRows: 0,
+      rows: rows.filter((r) => !excluded.has(r.row)),
+    });
+    Object.assign(window.go!.main.App, {
+      PreviewExcel: async () => preview(),
+      SetImportRowsExcluded: async (
+        token: string,
+        ids: number[],
+        exclude: boolean,
+      ) => {
+        if (token !== `r${revision}`) throw new Error("Старый токен");
+        for (const id of ids) {
+          if (exclude) excluded.add(id);
+          else excluded.delete(id);
+        }
+        revision++;
+        return preview();
+      },
+      ApplyExcel: async (token: string) => {
+        if (token !== `r${revision}` || excluded.size !== 2)
+          throw new Error("Неверный состав импорта");
+        return {
+          serversCreated: 1,
+          instancesCreated: 1,
+          databasesCreated: 1,
+          objectsUpdated: 0,
+          skipped: 0,
+          excluded: 2,
+        };
+      },
+    });
+  });
+  await page
+    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .click();
+  await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
+    name: "rows.xlsx",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("mock"),
+  });
+  await page
+    .getByRole("button", { name: "Исключить строку 3", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Исключить строку 3", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", {
+      name: "Исключить все ошибочные строки (1)",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Подтвердить импорт 1 строк",
+      exact: true,
+    }),
+  ).toBeEnabled();
+  await page.getByText("Исключённые строки (2)", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "Вернуть строку 3", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Подтвердить импорт 1 строк",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Исключить строку 3", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Подтвердить импорт 1 строк", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Исключено перед импортом: 2",
+  );
+});
+for (const role of ["editor", "viewer"]) {
+  test(`${role} can open history in a window but cannot access version controls`, async ({
+    page,
+  }) => {
+    await login(page, role);
+    await page.evaluate(() =>
+      Object.assign(window.go!.main.App, {
+        GetHistoryPage: async () => ({
+          items: [
+            {
+              id: 1,
+              action: "update",
+              actor: "admin",
+              createdAt: new Date().toISOString(),
+              before: {
+                id: "d1",
+                kind: "database",
+                name: "before",
+                version: 1,
+                attributes: { administration: [] },
+              },
+              after: {
+                id: "d1",
+                kind: "database",
+                name: "payroll",
+                version: 2,
+                attributes: { administration: [] },
+              },
+            },
+          ],
+          total: 1,
+          page: 0,
+        }),
+      }),
+    );
+    await page.locator(".tree-node").filter({ hasText: "payroll" }).click();
+    await expect(
+      page.getByRole("button", { name: "Версии записи", exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "История изменений", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "История изменений: payroll",
+      exact: true,
+    });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("columnheader", { name: "Было", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("cell", { name: "before", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Версии записи", exact: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await page
+      .locator(".tree-node")
+      .filter({ hasText: "payroll" })
+      .click({ button: "right" });
+    await expect(
+      page.getByRole("menuitem", { name: "Версии записи", exact: true }),
+    ).toHaveCount(0);
+  });
+}
+test("policy history is paginated in a separate window and has administrator version access", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const policy = {
+      id: "p1",
+      kind: "database",
+      objectId: "d1",
+      name: "Daily",
+      enabled: false,
+      backupType: "Локальное",
+      scheduler: "cron",
+      schedule: "daily",
+      storage: "/backup",
+      retentionDays: 7,
+      description: "",
+      version: 26,
+    };
+    Object.assign(window.go!.main.App, {
+      ListPolicies: async () => [policy],
+      GetHistoryPage: async (kind: string, id: string, page: number) => {
+        if (kind !== "policy" || id !== "p1")
+          throw new Error("Неверная запись");
+        return {
+          items: Array.from({ length: page ? 1 : 25 }, (_, i) => ({
+            id: 26 - page * 25 - i,
+            action: "update",
+            actor: "admin",
+            createdAt: new Date().toISOString(),
+            before: {
+              ...policy,
+              retentionDays: 1,
+              version: 25 - page * 25 - i,
+            },
+            after: { ...policy, version: 26 - page * 25 - i },
+          })),
+          total: 26,
+          page,
+        };
+      },
+    });
+  });
+  await page
+    .getByRole("button", { name: "◷ Политики РК", exact: true })
+    .click();
+  await page.getByRole("button", { name: "История", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "История изменений: Daily",
+    exact: true,
+  });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Версии записи", exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "→", exact: true }).click();
+  await expect(
+    dialog.getByText("Событий: 26 · Страница 2 из 2", { exact: true }),
+  ).toBeVisible();
 });

@@ -2,38 +2,13 @@ import { matchesSearch } from "./search";
 import { objectPath } from "./objectPath";
 import { useState } from "react";
 import {
-  api,
   type Catalog,
   type CatalogObject,
   type Policy,
-  type PolicyHistoryEntry,
   type Lookups,
 } from "./api";
 import { Field } from "./components";
 import { Choice, SuggestedInput } from "./ObjectEditor";
-const policyFields: Record<string, string> = {
-  name: "Название",
-  kind: "Уровень назначения",
-  objectId: "Объект",
-  enabled: "Статус",
-  backupType: "Тип РК",
-  scheduler: "Планировщик",
-  schedule: "Расписание",
-  storage: "Место хранения",
-  retentionDays: "Срок хранения, дней",
-  description: "Примечания",
-};
-function valueText(value: unknown) {
-  return typeof value === "boolean"
-    ? value
-      ? "Включен"
-      : "Отключен"
-    : value === "instance"
-      ? "Экземпляр"
-      : value === "database"
-        ? "База данных"
-        : String(value ?? "—");
-}
 export function effectivePolicy(object: CatalogObject, policies: Policy[]) {
   const direct = policies.find(
     (p) => p.kind === object.kind && p.objectId === object.id,
@@ -118,7 +93,8 @@ export function PoliciesPanel({
   onEdit,
   onDelete,
   onCreate,
-  run,
+  onHistory,
+  onVersions,
 }: {
   catalog: Catalog;
   policies: Policy[];
@@ -128,10 +104,10 @@ export function PoliciesPanel({
   onEdit: (p: Policy) => void;
   onDelete: (p: Policy) => void;
   onCreate: () => void;
-  run: (work: () => Promise<void>) => Promise<void>;
+  onHistory: (p: Policy) => void;
+  onVersions: (p: Policy) => void;
 }) {
-  const [history, setHistory] = useState<PolicyHistoryEntry[] | null>(null),
-    [query, setQuery] = useState("");
+  const [query, setQuery] = useState("");
   const target = (p: Policy) => {
     const object = (
       p.kind === "instance" ? catalog.instances : catalog.databases
@@ -215,16 +191,14 @@ export function PoliciesPanel({
                           Изменить
                         </button>
                       )}
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          void run(async () =>
-                            setHistory(await api().GetPolicyHistory(p.id)),
-                          )
-                        }
-                      >
+                      <button disabled={busy} onClick={() => onHistory(p)}>
                         История
                       </button>
+                      {canDelete && (
+                        <button disabled={busy} onClick={() => onVersions(p)}>
+                          Версии записи
+                        </button>
+                      )}
                       {canDelete && (
                         <button
                           disabled={busy}
@@ -242,38 +216,6 @@ export function PoliciesPanel({
           </table>
         )}
       </section>
-      {history && (
-        <section className="excel-panel history">
-          <h2>История политики</h2>
-          {history.map((h) => (
-            <article key={h.id}>
-              <strong>
-                {h.action === "create"
-                  ? "Создание"
-                  : h.action === "update"
-                    ? "Изменение"
-                    : "Удаление"}
-              </strong>
-              <small>
-                {h.actor} · {new Date(h.createdAt).toLocaleString("ru")}
-              </small>
-              {Object.entries(policyFields)
-                .filter(
-                  ([key]) =>
-                    h.before?.[key as keyof Policy] !==
-                    h.after?.[key as keyof Policy],
-                )
-                .map(([key, label]) => (
-                  <p key={key}>
-                    <b>{label}: </b>
-                    {valueText(h.before?.[key as keyof Policy])} →{" "}
-                    {valueText(h.after?.[key as keyof Policy])}
-                  </p>
-                ))}
-            </article>
-          ))}
-        </section>
-      )}
     </>
   );
 }

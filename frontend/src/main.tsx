@@ -1,4 +1,6 @@
-import { RestoreDialog } from "./RestoreDialog";
+import { HistoryDialog } from "./HistoryDialog";
+import { VersionsDialog } from "./VersionsDialog";
+import type { RecordTarget } from "./api";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -12,7 +14,6 @@ import {
   type Status,
   type Catalog,
   type CatalogObject,
-  type HistoryEntry,
   type Lookups,
   type DeletionPreview,
 } from "./api";
@@ -82,17 +83,15 @@ function App() {
       return next;
     });
   }
-  const [restore, setRestore] = useState<{
-    object: CatalogObject;
-    entry: HistoryEntry;
-    side: "before" | "after";
+  const [recordWindow, setRecordWindow] = useState<{
+    mode: "history" | "versions";
+    target: RecordTarget;
   } | null>(null);
   const [settingsConnection, setSettingsConnection] =
     useState<Connection | null>(null);
   const [query, setQuery] = useState(""),
     [page, setPage] = useState(0),
-    [users, setUsers] = useState<User[]>([]),
-    [history, setHistory] = useState<HistoryEntry[] | null>(null);
+    [users, setUsers] = useState<User[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]),
     [policyEditor, setPolicyEditor] = useState<Policy | null>(null),
     [policyDelete, setPolicyDelete] = useState<Policy | null>(null);
@@ -205,7 +204,7 @@ function App() {
       }
       await loadCatalog();
       setSelected(null);
-      setHistory(null);
+      setRecordWindow(null);
       setDeletion(null);
       setMessage(
         deletion.target
@@ -240,7 +239,7 @@ function App() {
     });
   }, []);
   useEffect(() => {
-    setRestore(null);
+    setRecordWindow(null);
     if (!status.user) {
       setUnread(0);
       setExpanded(new Set());
@@ -291,7 +290,7 @@ function App() {
   const currentPage = Math.min(page, lastPage);
   function choose(o: CatalogObject) {
     setSelected(o);
-    setHistory(null);
+    setRecordWindow(null);
   }
   function node(o: CatalogObject) {
     return (
@@ -346,7 +345,7 @@ function App() {
       setPolicyDelete(null);
       setDeletion(null);
       setContextMenu(null);
-      setHistory(null);
+      setRecordWindow(null);
       setFavorites([]);
       setLookups({});
       setPolicies([]);
@@ -442,13 +441,13 @@ function App() {
               setPolicyDelete(null);
               setDeletion(null);
               setContextMenu(null);
-              setHistory(null);
+              setRecordWindow(null);
               setView("auth");
             })
           }
         />
         <main aria-busy={busy}>
-          {error && (
+          {error && !recordWindow && (
             <div className="notice error" role="alert">
               {error}
             </div>
@@ -477,7 +476,16 @@ function App() {
             />
           )}
           {view === "audit" && status.user?.role === "admin" && (
-            <AuditPanel busy={busy} run={run} />
+            <AuditPanel
+              busy={busy}
+              run={run}
+              onRecordHistory={(target) =>
+                setRecordWindow({ mode: "history", target })
+              }
+              onRecordVersions={(target) =>
+                setRecordWindow({ mode: "versions", target })
+              }
+            />
           )}
           {view === "downloads" && <DownloadsPanel busy={busy} run={run} />}
           {view === "notifications" && (
@@ -645,7 +653,6 @@ function App() {
                   object={selected}
                   catalog={catalog}
                   policies={policies}
-                  history={history}
                   busy={busy}
                   canEdit={!!canEdit}
                   canDelete={status.user?.role === "admin"}
@@ -671,16 +678,13 @@ function App() {
                   onFavorite={() =>
                     selected && void run(() => toggleFavorite(selected))
                   }
-                  onRestore={(entry, side) =>
-                    selected && setRestore({ object: selected, entry, side })
+                  onVersions={() =>
+                    selected &&
+                    setRecordWindow({ mode: "versions", target: selected })
                   }
                   onHistory={() =>
                     selected &&
-                    void run(async () =>
-                      setHistory(
-                        await api().GetHistory(selected.kind, selected.id),
-                      ),
-                    )
+                    setRecordWindow({ mode: "history", target: selected })
                   }
                   onDelete={() => selected && requestDelete(selected)}
                   onPolicy={openPolicy}
@@ -707,7 +711,18 @@ function App() {
                 setError("");
                 setPolicyEditor(newPolicy());
               }}
-              run={run}
+              onHistory={(p) =>
+                setRecordWindow({
+                  mode: "history",
+                  target: { kind: "policy", id: p.id, name: p.name },
+                })
+              }
+              onVersions={(p) =>
+                setRecordWindow({
+                  mode: "versions",
+                  target: { kind: "policy", id: p.id, name: p.name },
+                })
+              }
             />
           )}
           {view === "excel" && (
@@ -792,7 +807,7 @@ function App() {
               const saved = await api().SaveObject(editor);
               await loadCatalog();
               setSelected(saved);
-              setHistory(null);
+              setRecordWindow(null);
               setEditor(null);
               setMessage("Объект сохранён");
             })
@@ -834,14 +849,11 @@ function App() {
           onPolicy={() => openPolicy(contextMenu.object)}
           onHistory={() => {
             goTo(contextMenu.object);
-            void run(async () =>
-              setHistory(
-                await api().GetHistory(
-                  contextMenu.object.kind,
-                  contextMenu.object.id,
-                ),
-              ),
-            );
+            setRecordWindow({ mode: "history", target: contextMenu.object });
+          }}
+          onVersions={() => {
+            goTo(contextMenu.object);
+            setRecordWindow({ mode: "versions", target: contextMenu.object });
           }}
           onFavorite={() => void run(() => toggleFavorite(contextMenu.object))}
           onDelete={() => requestDelete(contextMenu.object)}
@@ -905,33 +917,41 @@ function App() {
           </section>
         </div>
       )}
-      {restore && (
-        <RestoreDialog
-          object={restore.object}
-          entry={restore.entry}
-          side={restore.side}
+      {recordWindow?.mode === "history" && (
+        <HistoryDialog
+          target={recordWindow.target}
+          catalog={catalog}
           busy={busy}
           error={error}
-          onClose={() => setRestore(null)}
-          onConfirm={() =>
-            void run(async () => {
-              const o = restore.object;
-              const saved = await api().RestoreObject(
-                o.kind,
-                o.id,
-                o.version,
-                restore.entry.id,
-                restore.side,
-              );
-              await loadCatalog();
-              setSelected(saved);
-              setHistory(await api().GetHistory(saved.kind, saved.id));
-              setRestore(null);
-              setMessage(
-                "Историческое состояние восстановлено как новая версия",
-              );
-            })
+          run={run}
+          onClose={() => setRecordWindow(null)}
+          onVersions={
+            status.user?.role === "admin"
+              ? () => setRecordWindow({ ...recordWindow, mode: "versions" })
+              : undefined
           }
+        />
+      )}
+      {recordWindow?.mode === "versions" && status.user?.role === "admin" && (
+        <VersionsDialog
+          target={recordWindow.target}
+          catalog={catalog}
+          busy={busy}
+          error={error}
+          run={run}
+          onClose={() => setRecordWindow(null)}
+          onRestored={async () => {
+            const c = await loadCatalog();
+            const latest = [...c.servers, ...c.instances, ...c.databases].find(
+              (o) =>
+                o.id === recordWindow.target.id &&
+                o.kind === recordWindow.target.kind,
+            );
+            if (latest) {
+              setSelected(latest);
+              setRecordWindow((w) => (w ? { ...w, target: latest } : null));
+            }
+          }}
         />
       )}
       {deletion && (
