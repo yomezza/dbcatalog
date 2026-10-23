@@ -1,6 +1,6 @@
 # Выпуски CatalogDB
 
-Страница выпусков: https://github.com/yomezza/test/releases.
+Все 12 выпусков 0.1.0–0.10.0 опубликованы: https://github.com/yomezza/test/releases.
 
 Выпуски помечены как предварительные. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0.
 
@@ -32,8 +32,8 @@
 
 В этой среде GitHub вернул `403 Resource not accessible by integration` на
 `POST repos/yomezza/test/releases` для встроенного GITHUB_TOKEN, несмотря на
-`contents: write` в workflow. Теги v0.1.0–v0.10.0 созданы, файлы и описания подготовлены;
-публикация Releases требует учётных данных с правом создания выпусков.
+`contents: write` в workflow. Публикация выполнена через CATALOGDB_RELEASE_TOKEN после настройки прав.
+Для будущих запусков требуются учётные данные с правом создания выпусков.
 
 Создайте fine-grained personal access token только для репозитория yomezza/test
 с разрешением **Contents: Read and write**. Добавьте его как repository secret
