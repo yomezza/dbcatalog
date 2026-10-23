@@ -25,7 +25,10 @@ def api(path, method='GET', payload=None):
     if payload is not None:
         args += ['--input', '-']
         data = json.dumps(payload).encode()
-    return json.loads(run(*args, data=data))
+    try:
+        return json.loads(run(*args, data=data))
+    except RuntimeError as error:
+        raise RuntimeError(f'{method} {path}: {error}') from error
 
 
 def validate(manifest):
