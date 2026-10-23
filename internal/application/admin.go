@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/yomezza/test/internal/database"
+	"github.com/yomezza/test/internal/security"
 )
 
 func (s *Service) ListUsers() ([]User, error) {
@@ -64,6 +65,38 @@ func (s *Service) UpdateUser(id, role, state string) error {
 		return errors.New("Пользователь не найден")
 	}
 	if err = event(ctx, tx, s.user.ID, "user_update", "user", id); err != nil {
+		return errors.New(database.PublicError(err))
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return errors.New(database.PublicError(err))
+	}
+	return nil
+}
+
+// SetUserPassword lets an active administrator replace an application password.
+// Role/state are unchanged; neither the password nor its hash enter the audit.
+func (s *Service) SetUserPassword(id, password string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	tx, err := s.readTransaction(ctx, true, true)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	hash, err := security.Hash(password)
+	if err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `UPDATE users SET password_hash=$2 WHERE id=$1`, id, hash)
+	if err != nil {
+		return errors.New(database.PublicError(err))
+	}
+	if tag.RowsAffected() != 1 {
+		return errors.New("Пользователь не найден")
+	}
+	if err = event(ctx, tx, s.user.ID, "user_password_change", "user", id); err != nil {
 		return errors.New(database.PublicError(err))
 	}
 	if err = tx.Commit(ctx); err != nil {

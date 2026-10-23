@@ -2037,13 +2037,11 @@ test("attachments upload and editable instruction templates create shared docume
     dialog.getByRole("cell").filter({ hasText: "Восстановление payroll" }),
   ).toBeVisible();
   await dialog.getByText("Добавить файл", { exact: true }).click();
-  await dialog
-    .getByLabel("Файл", { exact: true })
-    .setInputFiles({
-      name: "guide.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.4 synthetic"),
-    });
+  await dialog.getByLabel("Файл", { exact: true }).setInputFiles({
+    name: "guide.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4 synthetic"),
+  });
   await dialog
     .getByRole("button", { name: "Загрузить вложение", exact: true })
     .click();
@@ -2303,4 +2301,96 @@ test("large catalog virtualizes rows and searches and exports records outside lo
   await expect(page.locator(".notice[role=status]")).toContainText(
     "Результат сохранён в Загрузки",
   );
+});
+
+test("administrator changes any user's password including their own without editing their role", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    const backend = window.go!.main.App;
+    backend.ListUsers = async () => [
+      { id: "u1", login: "admin", role: "admin", state: "active" },
+      { id: "u2", login: "operator", role: "editor", state: "blocked" },
+    ];
+    (window as any).__passwordChanges = [];
+    backend.SetUserPassword = async (id, password) => {
+      if (password === "server-error-password")
+        throw new Error("Синтетическая ошибка сохранения");
+      (window as any).__passwordChanges.push({ id, password });
+    };
+  });
+  await page.getByRole("button", { name: /Пользователи/ }).click();
+  const own = page.getByRole("row").filter({ hasText: "admin" });
+  await expect(own.getByRole("combobox").first()).toBeDisabled();
+  await expect(
+    own.getByRole("button", { name: "Сменить пароль", exact: true }),
+  ).toBeEnabled();
+  const other = page.getByRole("row").filter({ hasText: "operator" });
+  await other
+    .getByRole("button", { name: "Сменить пароль", exact: true })
+    .click();
+  let dialog = page.getByRole("dialog", { name: "Сменить пароль: operator" });
+  await dialog
+    .getByLabel("Новый пароль", { exact: true })
+    .fill("new-operator-password");
+  await expect(
+    dialog.getByLabel("Новый пароль", { exact: true }),
+  ).toHaveAttribute("type", "password");
+  await dialog.getByLabel("Повторите новый пароль").fill("another-password");
+  await expect(dialog.getByRole("alert")).toHaveText("Пароли не совпадают");
+  await expect(
+    dialog.getByRole("button", { name: "Сохранить пароль" }),
+  ).toBeDisabled();
+  await dialog
+    .getByLabel("Повторите новый пароль")
+    .fill("new-operator-password");
+  await dialog.getByRole("button", { name: "Сохранить пароль" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "Пароль пользователя изменён",
+  );
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__passwordChanges))
+    .toEqual([{ id: "u2", password: "new-operator-password" }]);
+  await own
+    .getByRole("button", { name: "Сменить пароль", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", { name: "Сменить пароль: admin" });
+  await expect(dialog.getByLabel("Новый пароль", { exact: true })).toHaveValue(
+    "",
+  );
+  await dialog
+    .getByLabel("Новый пароль", { exact: true })
+    .fill("server-error-password");
+  await dialog
+    .getByLabel("Повторите новый пароль")
+    .fill("server-error-password");
+  await dialog.getByRole("button", { name: "Сохранить пароль" }).click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Синтетическая ошибка сохранения",
+  );
+  await dialog
+    .getByLabel("Новый пароль", { exact: true })
+    .fill("new-administrator-password");
+  await dialog
+    .getByLabel("Повторите новый пароль")
+    .fill("new-administrator-password");
+  await dialog.getByRole("button", { name: "Сохранить пароль" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__passwordChanges.length))
+    .toBe(2);
+  await own
+    .getByRole("button", { name: "Сменить пароль", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", { name: "Сменить пароль: admin" });
+  await expect(dialog.getByLabel("Новый пароль", { exact: true })).toHaveValue(
+    "",
+  );
+  await dialog.getByRole("button", { name: "Отмена", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__passwordChanges.length))
+    .toBe(2);
 });

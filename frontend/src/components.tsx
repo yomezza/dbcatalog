@@ -25,10 +25,14 @@ export function Stat({ label, value }: { label: string; value: number }) {
 export function UserRow({
   user,
   disabled,
+  passwordDisabled,
+  onPassword,
   save,
 }: {
   user: User;
   disabled: boolean;
+  passwordDisabled: boolean;
+  onPassword: () => void;
   save: (role: string, state: string) => void;
 }) {
   const [role, setRole] = useState(user.role),
@@ -69,6 +73,9 @@ export function UserRow({
           onClick={() => save(role, state)}
         >
           Сохранить
+        </button>
+        <button disabled={passwordDisabled} onClick={onPassword}>
+          Сменить пароль
         </button>
       </td>
     </tr>

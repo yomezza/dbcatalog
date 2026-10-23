@@ -29,6 +29,8 @@ func notificationEvent(ctx context.Context, tx pgx.Tx, actor, action, entity, id
 	switch action {
 	case "register":
 		_, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity,object_id) SELECT a.id,'registration','Заявка на регистрацию',u.login||' ожидает подтверждения','user',u.id FROM users a CROSS JOIN users u WHERE a.role='admin' AND a.state='active' AND u.id=$1 AND u.state='pending'`, id)
+	case "user_password_change":
+		_, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity,object_id) SELECT id,'account','Пароль изменён','Администратор изменил пароль вашей учётной записи. Новый пароль применяется при следующем входе.','account',id FROM users WHERE id=$1`, id)
 	case "user_update":
 		_, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity,object_id) SELECT id,'account','Изменена учётная запись','Роль: '||CASE role WHEN 'admin' THEN 'Администратор' WHEN 'editor' THEN 'Редактор' ELSE 'Наблюдатель' END||'. Состояние: '||CASE state WHEN 'active' THEN 'Активна' WHEN 'pending' THEN 'Ожидает подтверждения' WHEN 'blocked' THEN 'Заблокирована' ELSE 'Отключена' END,'account',id FROM users WHERE id=$1`, id)
 	case "update", "delete", "restore":

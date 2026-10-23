@@ -432,6 +432,7 @@ interface Backend {
   GetAudit(filter: AuditFilter): Promise<AuditPage>;
   ListUsers(): Promise<User[]>;
   UpdateUser(id: string, role: string, state: string): Promise<void>;
+  SetUserPassword(id: string, password: string): Promise<void>;
   GetHistory(kind: Kind, id: string): Promise<HistoryEntry[]>;
 }
 declare global {

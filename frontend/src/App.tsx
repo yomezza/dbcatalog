@@ -28,6 +28,7 @@ import {
   type DeletionPreview,
 } from "./api";
 import { UserRow } from "./components";
+import { UserPasswordDialog } from "./UserPasswordDialog";
 import { ConnectionPanel } from "./ConnectionPanel";
 import { AuthPanel } from "./AuthPanel";
 import { PoliciesPanel, PolicyEditor } from "./PoliciesPanel";
@@ -67,6 +68,7 @@ export function App() {
     needsAdmin: false,
     user: null,
   });
+  const [passwordUser, setPasswordUser] = useState<User | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -245,6 +247,7 @@ export function App() {
   }, []);
   useEffect(() => {
     setRecordWindow(null);
+    setPasswordUser(null);
     setAttachmentObject(null);
     setMoveObject(null);
     setMovementObject(null);
@@ -697,6 +700,11 @@ export function App() {
                         key={u.id}
                         user={u}
                         disabled={busy || u.id === status.user?.id}
+                        passwordDisabled={busy}
+                        onPassword={() => {
+                          setError("");
+                          setPasswordUser(u);
+                        }}
                         save={(role, state) =>
                           void run(async () => {
                             await api().UpdateUser(u.id, role, state);
@@ -713,6 +721,19 @@ export function App() {
           )}
         </main>
       </div>
+      {passwordUser && (
+        <UserPasswordDialog
+          user={passwordUser}
+          busy={busy}
+          error={error}
+          run={run}
+          onClose={() => setPasswordUser(null)}
+          onSaved={() => {
+            setPasswordUser(null);
+            setMessage("Пароль пользователя изменён");
+          }}
+        />
+      )}
       {attachmentObject && (
         <AttachmentsDialog
           object={attachmentObject}

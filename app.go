@@ -50,6 +50,9 @@ func (a *App) PreviewClearCatalog() (application.DeletionPreview, error) {
 func (a *App) ClearCatalog(fingerprint, confirmation string) (application.DeletionPreview, error) {
 	return a.service.ClearCatalog(fingerprint, confirmation)
 }
+func (a *App) SetUserPassword(id, password string) error {
+	return a.service.SetUserPassword(id, password)
+}
 func (a *App) ListUsers() ([]application.User, error)  { return a.service.ListUsers() }
 func (a *App) UpdateUser(id, role, state string) error { return a.service.UpdateUser(id, role, state) }
 func (a *App) GetHistory(kind, id string) ([]application.HistoryEntry, error) {
