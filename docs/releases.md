@@ -1,6 +1,6 @@
 # Выпуски CatalogDB
 
-Все опубликованные версии: https://github.com/yomezza/test/releases.
+Страница выпусков: https://github.com/yomezza/test/releases.
 
 Выпуски помечены как предварительные. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0.
 
@@ -27,3 +27,19 @@
 4. Отправьте изменения манифеста в catalogdb-go или master. Workflow Publish CatalogDB releases опубликует выпуски через GITHUB_TOKEN с правом contents:write.
 
 Повторный запуск не перезаписывает файлы с отличающимся содержимым и не перемещает теги. Новый выпуск создаётся черновиком и публикуется после загрузки всех вложений. Для 0.9.0 и 0.10.0 дополнительно опубликован SQL-переход 009 → 016. Самостоятельный запуск с --publish требует авторизованного GitHub CLI.
+
+## Если GitHub отклоняет создание Release
+
+В этой среде GitHub вернул `403 Resource not accessible by integration` на
+`POST repos/yomezza/test/releases` для встроенного GITHUB_TOKEN, несмотря на
+`contents: write` в workflow. Теги v0.1.0–v0.10.0 созданы, файлы и описания подготовлены;
+публикация Releases требует учётных данных с правом создания выпусков.
+
+Создайте fine-grained personal access token только для репозитория yomezza/test
+с разрешением **Contents: Read and write**. Добавьте его как repository secret
+**CATALOGDB_RELEASE_TOKEN** в Settings → Secrets and variables → Actions.
+Не вставляйте токен в исходники, описание выпуска или чат.
+
+Затем повторно запустите последнее задание **Publish CatalogDB releases** через
+**Re-run all jobs**. Workflow использует секрет вместо встроенного токена;
+архивы уже находятся в репозитории, пересборка не требуется.

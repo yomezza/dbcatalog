@@ -24,5 +24,5 @@ jobs:
         run: python3 packaging/publish-releases.py
       - name: Publish historical versions with build assets
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.CATALOGDB_RELEASE_TOKEN || github.token }}
         run: python3 packaging/publish-releases.py --publish

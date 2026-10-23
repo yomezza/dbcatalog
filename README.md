@@ -6,9 +6,9 @@
 
 [Все версии на GitHub Releases](https://github.com/yomezza/test/releases) · [История выпусков](docs/releases.md)
 
-[CatalogDB 0.10.0 для Windows x64](https://github.com/yomezza/test/releases/download/v0.10.0/CatalogDB-windows-x64-0.10.0.zip) · [Linux x64](https://github.com/yomezza/test/releases/download/v0.10.0/CatalogDB-linux-x64-0.10.0.tar.gz) · [Linux: запуск и сборка](docs/linux.md)
+[CatalogDB 0.10.0 для Windows x64](downloads/CatalogDB-windows-x64-0.10.0.zip) · [Linux x64](downloads/CatalogDB-linux-x64-0.10.0.tar.gz) · [Linux: запуск и сборка](docs/linux.md)
 
-На странице выпуска выберите нужный архив в разделе **Assets**. Распакуйте и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; для Windows нужен Microsoft Edge WebView2 Runtime, для Linux — GTK/WebKitGTK; нужна доступная PostgreSQL. Это предварительная сборка, работа на Windows пока не проверена. Архив соответствует исходникам этой версии; после изменения кода его нужно пересобирать. Последующие сборки предусмотрены как артефакты GitHub Actions.
+На странице выпуска выберите нужный архив в разделе **Assets**. Пока публикация Releases ожидает настройки токена, доступны архивы по ссылкам выше: откройте файл на GitHub и нажмите **Download raw file**. Распакуйте и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; для Windows нужен Microsoft Edge WebView2 Runtime, для Linux — GTK/WebKitGTK; нужна доступная PostgreSQL. Это предварительная сборка, работа на Windows пока не проверена. Архив соответствует исходникам этой версии; после изменения кода его нужно пересобирать. Последующие сборки предусмотрены как артефакты GitHub Actions.
 
 ## Новое в 0.10.0
 
