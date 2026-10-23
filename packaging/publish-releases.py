@@ -103,7 +103,19 @@ def publish(manifest):
             'name': release['title'], 'body': release['body'],
             'draft': False, 'prerelease': release['prerelease'], 'make_latest': 'false',
         })
-        print(f'Published https://github.com/{repo}/releases/tag/{tag}', flush=True)
+        published = api(f'repos/{repo}/releases/{current["id"]}')
+        if published['draft']:
+            raise ValueError(f'Release is still a draft: {tag}')
+        uploaded = {asset['name']: asset for asset in published['assets']}
+        for name in release['assets']:
+            path = ROOT / name
+            remote = uploaded.get(path.name)
+            if remote is None or remote.get('state') != 'uploaded' or remote['size'] != path.stat().st_size:
+                raise ValueError(f'Release asset is missing or incomplete: {tag}/{path.name}')
+            digest = remote.get('digest')
+            if digest and digest != 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest():
+                raise ValueError(f'Uploaded checksum differs: {tag}/{path.name}')
+        print(f'Published and verified https://github.com/{repo}/releases/tag/{tag}', flush=True)
 
 
 if __name__ == '__main__':
