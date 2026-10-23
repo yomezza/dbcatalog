@@ -138,6 +138,19 @@
         "downloads/CatalogDB-upgrade-009-to-016.sql",
         "downloads/CatalogDB-upgrade-009-to-016.sql.sha256"
       ]
+    },
+    {
+      "version": "0.11.0",
+      "commit": "dca233159ca99242be921fecdd1045a36a96b975",
+      "title": "CatalogDB 0.11.0 — Диагностика приложения",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.11.0.\n\n- Раздел «Диагностика» доступен до входа и без подключения к каталогу.\n- Версии приложения, Go/Wails и PostgreSQL, состояние настроек, TLS и пула соединений.\n- Сверка всех миграций и SHA-256 с SQL, встроенным в эту сборку; проверка только читает состояние.\n- Состояние LISTEN/NOTIFY, время подключения и последнего события.\n- Результат последней операции системного хранилища без отдельного запроса или разблокировки.\n- Сохранение свежего JSON через системный диалог. Отчёт не содержит паролей, токенов, DSN, адресов, логинов, путей и содержимого карточек.\n\nНовых SQL-миграций нет, используется схема 016. Windows x64 требует WebView2; Linux x64 — glibc ≥ 2.41, GTK 3 и WebKitGTK 4.1 (облачная сборка Debian 13).\n\nПроверки: Go с race detector и PostgreSQL 17, go vet, 14 тестов frontend и 42 Playwright-сценария. После правки раскладки повторно проверен сценарий диагностики. Linux GUI и сохранение JSON через настоящий GTK-диалог проверены под Xvfb; запуск Windows GUI здесь не выполнялся.\n\n[Инструкция](https://github.com/yomezza/test/blob/dca233159ca99242be921fecdd1045a36a96b975/docs/diagnostics.md) · [Скриншот](https://github.com/yomezza/test/blob/dca233159ca99242be921fecdd1045a36a96b975/docs/images/linux/10-diagnostics.png)\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.11.0.zip",
+        "downloads/CatalogDB-windows-x64-0.11.0.zip.sha256",
+        "downloads/CatalogDB-linux-x64-0.11.0.tar.gz",
+        "downloads/CatalogDB-linux-x64-0.11.0.tar.gz.sha256"
+      ]
     }
   ]
 }

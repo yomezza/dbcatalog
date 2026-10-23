@@ -1,11 +1,12 @@
 # Выпуски CatalogDB
 
-Все 12 выпусков 0.1.0–0.10.0 опубликованы: https://github.com/yomezza/test/releases.
+Все 13 выпусков 0.1.0–0.11.0 опубликованы: https://github.com/yomezza/test/releases.
 
 Выпуски помечены как предварительные. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0.
 
 | Версия | Изменения | Платформы |
 |---|---|---|
+| [0.11.0](https://github.com/yomezza/test/releases/tag/v0.11.0) | Диагностика приложения и безопасный отчёт JSON | Windows x64, Linux x64 |
 | [0.10.0](https://github.com/yomezza/test/releases/tag/v0.10.0) | Windows и Linux | Windows x64, Linux x64 |
 | [0.9.0](https://github.com/yomezza/test/releases/tag/v0.9.0) | PostgreSQL backend и сохранение входа | Windows x64 |
 | [0.8.1](https://github.com/yomezza/test/releases/tag/v0.8.1) | Управление паролями пользователей | Windows x64 |
