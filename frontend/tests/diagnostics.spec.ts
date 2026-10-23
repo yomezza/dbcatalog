@@ -19,6 +19,11 @@ test("diagnostics works before login, refreshes migration results and handles sa
  await expect(page.getByRole("heading",{name:"Диагностика",exact:true})).toBeVisible();
  await expect(page.getByText("linux/amd64",{exact:true})).toBeVisible();
  await expect(page.getByText("Обращений ещё не было",{exact:true})).toBeVisible();
+ const versionRow=page.getByText("Версия CatalogDB",{exact:true}).locator("..");
+ const value=versionRow.locator("dd");
+ const box=await value.boundingBox();
+ expect(box?.width).toBeGreaterThan(100);
+ expect(box?.height).toBeLessThan(40);
  await page.getByRole("button",{name:"↻ Обновить",exact:true}).click();
  await expect(page.getByText("17.11",{exact:true})).toBeVisible();
  await expect(page.getByText("Не совпадает SHA-256",{exact:true})).toBeVisible();
