@@ -2,6 +2,10 @@
 
 Настольный каталог серверов → экземпляров СУБД → баз данных; Oracle SID размещаются непосредственно на сервере. Go + Wails v2, React/TypeScript, центральная PostgreSQL. Интерфейс на русском языке.
 
+## Продолжить разработку с другим ассистентом
+
+Начните с [AGENTS.md](AGENTS.md) и [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md): там текущее состояние, требования пользователя, принятые решения и идеи, которые пока только обсуждались. Команды и порядок выпуска — в [DEVELOPMENT.md](docs/DEVELOPMENT.md), ограничения и незавершённые вопросы — в [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+
 ## Скачать предварительную сборку
 
 [Все версии на GitHub Releases](https://github.com/yomezza/dbcatalog/releases) · [История выпусков](docs/releases.md)
