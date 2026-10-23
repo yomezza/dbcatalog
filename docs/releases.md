@@ -1,0 +1,29 @@
+# Выпуски CatalogDB
+
+Все опубликованные версии: https://github.com/yomezza/test/releases.
+
+Выпуски помечены как предварительные. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0.
+
+| Версия | Изменения | Платформы |
+|---|---|---|
+| [0.10.0](https://github.com/yomezza/test/releases/tag/v0.10.0) | Windows и Linux | Windows x64, Linux x64 |
+| [0.9.0](https://github.com/yomezza/test/releases/tag/v0.9.0) | PostgreSQL backend и сохранение входа | Windows x64 |
+| [0.8.1](https://github.com/yomezza/test/releases/tag/v0.8.1) | Управление паролями пользователей | Windows x64 |
+| [0.8.0](https://github.com/yomezza/test/releases/tag/v0.8.0) | Документы и большие каталоги | Windows x64 |
+| [0.7.1](https://github.com/yomezza/test/releases/tag/v0.7.1) | Оптимизация структуры приложения | Windows x64 |
+| [0.7.0](https://github.com/yomezza/test/releases/tag/v0.7.0) | Массовые операции и восстановление | Windows x64 |
+| [0.6.0](https://github.com/yomezza/test/releases/tag/v0.6.0) | Версии записей и исправление импорта | Windows x64 |
+| [0.5.0](https://github.com/yomezza/test/releases/tag/v0.5.0) | Oracle непосредственно под сервером | Windows x64 |
+| [0.4.0](https://github.com/yomezza/test/releases/tag/v0.4.0) | Загрузки, уведомления и подключения | Windows x64 |
+| [0.3.0](https://github.com/yomezza/test/releases/tag/v0.3.0) | Поиск и управление каталогом | Windows x64 |
+| [0.2.0](https://github.com/yomezza/test/releases/tag/v0.2.0) | Справочники, избранное и Excel | Windows x64 |
+| [0.1.0](https://github.com/yomezza/test/releases/tag/v0.1.0) | Основа каталога на Go | Windows x64 |
+
+## Публикация следующих версий
+
+1. Зафиксируйте сборки в downloads вместе с SHA-256.
+2. Добавьте выпуск в packaging/releases/manifest.json с полным SHA коммита, содержащего эти файлы, описанием и списком вложений.
+3. Выполните `python3 packaging/publish-releases.py`: проверяются контрольные суммы и точное соответствие файлов историческому коммиту.
+4. Отправьте изменения манифеста в catalogdb-go или master. Workflow Publish CatalogDB releases опубликует выпуски через GITHUB_TOKEN с правом contents:write.
+
+Повторный запуск не перезаписывает файлы с отличающимся содержимым и не перемещает теги. Новый выпуск создаётся черновиком и публикуется после загрузки всех вложений. Для 0.9.0 и 0.10.0 дополнительно опубликован SQL-переход 009 → 016. Самостоятельный запуск с --publish требует авторизованного GitHub CLI.

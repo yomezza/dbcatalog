@@ -1,0 +1,143 @@
+{
+  "repository": "yomezza/test",
+  "releases": [
+    {
+      "version": "0.1.0",
+      "commit": "bb7e312fb9cb361ba00fdcd218260be86a033835",
+      "title": "CatalogDB 0.1.0 — Основа каталога на Go",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.1.0.\n\n- Подключение к PostgreSQL с выбором схемы и автоматическими миграциями.\n- Первоначальный интерфейс каталога серверов, экземпляров и баз данных.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `bb7e312fb9cb361ba00fdcd218260be86a033835`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.1.0.zip",
+        "downloads/CatalogDB-windows-x64-0.1.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.2.0",
+      "commit": "cb87481599bf0eae404b64c5945a74bd4108d898",
+      "title": "CatalogDB 0.2.0 — Справочники, избранное и Excel",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.2.0.\n\n- Справочники полей, множественный выбор работы АБД, контекстное меню и избранное.\n- Развитие импорта и экспорта Excel.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `cb87481599bf0eae404b64c5945a74bd4108d898`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.2.0.zip",
+        "downloads/CatalogDB-windows-x64-0.2.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.3.0",
+      "commit": "43e76a0e8c3f3079509d394d7841e9f4866c489e",
+      "title": "CatalogDB 0.3.0 — Поиск и управление каталогом",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.3.0.\n\n- Поиск с символом | как логическим И.\n- Очистка каталога, цветные карточки и просмотр аудита.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `43e76a0e8c3f3079509d394d7841e9f4866c489e`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.3.0.zip",
+        "downloads/CatalogDB-windows-x64-0.3.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.4.0",
+      "commit": "977404c08d0a911cb84e1d7b4c4bca9ad3e3e780",
+      "title": "CatalogDB 0.4.0 — Загрузки, уведомления и подключения",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.4.0.\n\n- История загрузок, исправление строк предпросмотра импорта и уведомления.\n- Статистика и запуск подключений RDP/SSH.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `977404c08d0a911cb84e1d7b4c4bca9ad3e3e780`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.4.0.zip",
+        "downloads/CatalogDB-windows-x64-0.4.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.5.0",
+      "commit": "145a999c1b08f47327604d9fe1983386bf295f1a",
+      "title": "CatalogDB 0.5.0 — Oracle непосредственно под сервером",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.5.0.\n\n- Oracle SID размещаются непосредственно под сервером без обязательного экземпляра.\n- Фирменные полосы прокрутки и восстановление истории объектов.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `145a999c1b08f47327604d9fe1983386bf295f1a`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.5.0.zip",
+        "downloads/CatalogDB-windows-x64-0.5.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.6.0",
+      "commit": "4118618eff57fb9a3f406b859f1643e449c3811b",
+      "title": "CatalogDB 0.6.0 — Версии записей и исправление импорта",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.6.0.\n\n- Исключение строк из импорта.\n- Архив версий записей, восстановление администратором и отдельные окна истории.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `4118618eff57fb9a3f406b859f1643e449c3811b`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.6.0.zip",
+        "downloads/CatalogDB-windows-x64-0.6.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.7.0",
+      "commit": "789c07b2ffca98b990f352cf0769b3c8a823e2b8",
+      "title": "CatalogDB 0.7.0 — Массовые операции и восстановление",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.7.0.\n\n- Массовое редактирование с предпросмотром, фильтры и проверка качества данных.\n- Восстановление удалённых записей и импорт политик резервного копирования.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `789c07b2ffca98b990f352cf0769b3c8a823e2b8`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.7.0.zip",
+        "downloads/CatalogDB-windows-x64-0.7.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.7.1",
+      "commit": "c7c9c71040e2f56bd3a7883c0eacc418c02436b9",
+      "title": "CatalogDB 0.7.1 — Оптимизация структуры приложения",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.7.1.\n\n- Разделение модулей каталога и упрощение структуры кода.\n- Сокращение обращений к PostgreSQL.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `c7c9c71040e2f56bd3a7883c0eacc418c02436b9`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.7.1.zip",
+        "downloads/CatalogDB-windows-x64-0.7.1.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.8.0",
+      "commit": "bcdde61e93c167304d08302e6839217b9e3d735a",
+      "title": "CatalogDB 0.8.0 — Документы и большие каталоги",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.8.0.\n\n- Вложения и инструкции к объектам, история перемещений.\n- Постраничная загрузка больших каталогов при сохранении глобального поиска.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `bcdde61e93c167304d08302e6839217b9e3d735a`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.8.0.zip",
+        "downloads/CatalogDB-windows-x64-0.8.0.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.8.1",
+      "commit": "6c2651ada2199c79d1aba116e1d8c091872b1ad8",
+      "title": "CatalogDB 0.8.1 — Управление паролями пользователей",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.8.1.\n\n- Смена пароля пользователя администратором.\n- План развития серверной логики PostgreSQL.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `6c2651ada2199c79d1aba116e1d8c091872b1ad8`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.8.1.zip",
+        "downloads/CatalogDB-windows-x64-0.8.1.zip.sha256"
+      ]
+    },
+    {
+      "version": "0.9.0",
+      "commit": "26afe5d44f9e705954ee4945821fd12059ca5226",
+      "title": "CatalogDB 0.9.0 — PostgreSQL backend и сохранение входа",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.9.0.\n\n- Серверные функции, триггеры, секционирование истории и аудита, пакетный импорт.\n- Обновления LISTEN/NOTIFY и сохранение входа на выбранное время.\n- Автоматические миграции 010–016; перед обновлением закройте старые клиенты и сделайте резервную копию БД.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nИсходники этого выпуска: коммит `26afe5d44f9e705954ee4945821fd12059ca5226`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.9.0.zip",
+        "downloads/CatalogDB-windows-x64-0.9.0.zip.sha256",
+        "downloads/CatalogDB-upgrade-009-to-016.sql",
+        "downloads/CatalogDB-upgrade-009-to-016.sql.sha256"
+      ]
+    },
+    {
+      "version": "0.10.0",
+      "commit": "831f6c8652ea9befd646de6f5e653eb60e569c99",
+      "title": "CatalogDB 0.10.0 — Windows и Linux",
+      "prerelease": true,
+      "body": "Предварительная сборка CatalogDB 0.10.0.\n\n- Общий интерфейс Wails и backend для Windows/Linux.\n- Linux: Secret Service, открытие файлов, RDP через FreeRDP/Remmina и SSH через терминал.\n- Сценарии сборки и CI для обеих платформ. Новых миграций относительно 0.9.0 нет.\n\n### Установка\n\nWindows x64: скачайте ZIP из Assets, распакуйте и запустите `CatalogDB.exe`. Требуются WebView2 Runtime и доступная PostgreSQL. Файлы `.sha256` содержат контрольные суммы архивов.\n\nLinux x64: архив собран на Debian 13, нужны glibc ≥ 2.41, GTK 3 и WebKitGTK 4.1. Распакуйте и запустите `./CatalogDB`. Для более старых систем собирайте из исходников. [Инструкция](https://github.com/yomezza/test/blob/831f6c8652ea9befd646de6f5e653eb60e569c99/docs/linux.md).\n\nИсходники этого выпуска: коммит `831f6c8652ea9befd646de6f5e653eb60e569c99`. Это развиваемая предварительная версия; наличие сборки не означает проверку всех функций на каждой ОС.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.10.0.zip",
+        "downloads/CatalogDB-windows-x64-0.10.0.zip.sha256",
+        "downloads/CatalogDB-linux-x64-0.10.0.tar.gz",
+        "downloads/CatalogDB-linux-x64-0.10.0.tar.gz.sha256",
+        "downloads/CatalogDB-upgrade-009-to-016.sql",
+        "downloads/CatalogDB-upgrade-009-to-016.sql.sha256"
+      ]
+    }
+  ]
+}

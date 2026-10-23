@@ -1,0 +1,28 @@
+name: Publish CatalogDB releases
+on:
+  push:
+    branches: [catalogdb-go, master]
+    paths:
+      - packaging/releases/**
+      - packaging/publish-releases.py
+      - .github/workflows/releases.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: catalogdb-release-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate source commits and SHA-256
+        run: python3 packaging/publish-releases.py
+      - name: Publish historical versions with build assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 packaging/publish-releases.py --publish
