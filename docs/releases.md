@@ -1,24 +1,25 @@
 # Выпуски CatalogDB
 
-Все 13 выпусков 0.1.0–0.11.0 опубликованы: https://github.com/yomezza/test/releases.
+Версии 0.1.0–0.12.0: https://github.com/yomezza/dbcatalog/releases.
 
 Выпуски помечены как предварительные. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0.
 
 | Версия | Изменения | Платформы |
 |---|---|---|
-| [0.11.0](https://github.com/yomezza/test/releases/tag/v0.11.0) | Диагностика приложения и безопасный отчёт JSON | Windows x64, Linux x64 |
-| [0.10.0](https://github.com/yomezza/test/releases/tag/v0.10.0) | Windows и Linux | Windows x64, Linux x64 |
-| [0.9.0](https://github.com/yomezza/test/releases/tag/v0.9.0) | PostgreSQL backend и сохранение входа | Windows x64 |
-| [0.8.1](https://github.com/yomezza/test/releases/tag/v0.8.1) | Управление паролями пользователей | Windows x64 |
-| [0.8.0](https://github.com/yomezza/test/releases/tag/v0.8.0) | Документы и большие каталоги | Windows x64 |
-| [0.7.1](https://github.com/yomezza/test/releases/tag/v0.7.1) | Оптимизация структуры приложения | Windows x64 |
-| [0.7.0](https://github.com/yomezza/test/releases/tag/v0.7.0) | Массовые операции и восстановление | Windows x64 |
-| [0.6.0](https://github.com/yomezza/test/releases/tag/v0.6.0) | Версии записей и исправление импорта | Windows x64 |
-| [0.5.0](https://github.com/yomezza/test/releases/tag/v0.5.0) | Oracle непосредственно под сервером | Windows x64 |
-| [0.4.0](https://github.com/yomezza/test/releases/tag/v0.4.0) | Загрузки, уведомления и подключения | Windows x64 |
-| [0.3.0](https://github.com/yomezza/test/releases/tag/v0.3.0) | Поиск и управление каталогом | Windows x64 |
-| [0.2.0](https://github.com/yomezza/test/releases/tag/v0.2.0) | Справочники, избранное и Excel | Windows x64 |
-| [0.1.0](https://github.com/yomezza/test/releases/tag/v0.1.0) | Основа каталога на Go | Windows x64 |
+| [0.12.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.12.0) | Сворачиваемая рабочая область и единые иконки навигации | Windows x64, Linux x64 |
+| [0.11.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.11.0) | Диагностика приложения и безопасный отчёт JSON | Windows x64, Linux x64 |
+| [0.10.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.10.0) | Windows и Linux | Windows x64, Linux x64 |
+| [0.9.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.9.0) | PostgreSQL backend и сохранение входа | Windows x64 |
+| [0.8.1](https://github.com/yomezza/dbcatalog/releases/tag/v0.8.1) | Управление паролями пользователей | Windows x64 |
+| [0.8.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.8.0) | Документы и большие каталоги | Windows x64 |
+| [0.7.1](https://github.com/yomezza/dbcatalog/releases/tag/v0.7.1) | Оптимизация структуры приложения | Windows x64 |
+| [0.7.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.7.0) | Массовые операции и восстановление | Windows x64 |
+| [0.6.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.6.0) | Версии записей и исправление импорта | Windows x64 |
+| [0.5.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.5.0) | Oracle непосредственно под сервером | Windows x64 |
+| [0.4.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.4.0) | Загрузки, уведомления и подключения | Windows x64 |
+| [0.3.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.3.0) | Поиск и управление каталогом | Windows x64 |
+| [0.2.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.2.0) | Справочники, избранное и Excel | Windows x64 |
+| [0.1.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.1.0) | Основа каталога на Go | Windows x64 |
 
 ## Публикация следующих версий
 
@@ -34,11 +35,11 @@
 ## Если GitHub отклоняет создание Release
 
 В этой среде GitHub вернул `403 Resource not accessible by integration` на
-`POST repos/yomezza/test/releases` для встроенного GITHUB_TOKEN, несмотря на
+`POST repos/yomezza/dbcatalog/releases` для встроенного GITHUB_TOKEN, несмотря на
 `contents: write` в workflow. Публикация выполнена через CATALOGDB_RELEASE_TOKEN после настройки прав.
 Для будущих запусков требуются учётные данные с правом создания выпусков.
 
-Создайте fine-grained personal access token только для репозитория yomezza/test
+Создайте fine-grained personal access token только для репозитория yomezza/dbcatalog
 с разрешением **Contents: Read and write**. Добавьте его как repository secret
 **CATALOGDB_RELEASE_TOKEN** в Settings → Secrets and variables → Actions.
 Не вставляйте токен в исходники, описание выпуска или чат.

@@ -4,11 +4,20 @@
 
 ## Скачать предварительную сборку
 
-[Все версии на GitHub Releases](https://github.com/yomezza/test/releases) · [История выпусков](docs/releases.md)
+[Все версии на GitHub Releases](https://github.com/yomezza/dbcatalog/releases) · [История выпусков](docs/releases.md)
 
-[CatalogDB 0.11.0 для Windows x64](https://github.com/yomezza/test/releases/download/v0.11.0/CatalogDB-windows-x64-0.11.0.zip) · [Linux x64](https://github.com/yomezza/test/releases/download/v0.11.0/CatalogDB-linux-x64-0.11.0.tar.gz) · [Linux: запуск и сборка](docs/linux.md)
+[CatalogDB 0.12.0 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.12.0/CatalogDB-windows-x64-0.12.0.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.12.0/CatalogDB-linux-x64-0.12.0.tar.gz) · [Linux: запуск и сборка](docs/linux.md)
 
 На странице выпуска выберите нужный архив в разделе **Assets**. Распакуйте и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; для Windows нужен Microsoft Edge WebView2 Runtime, для Linux — GTK/WebKitGTK; нужна доступная PostgreSQL. Это предварительная сборка, работа на Windows пока не проверена. Архив соответствует исходникам этой версии; после изменения кода его нужно пересобирать. Последующие сборки предусмотрены как артефакты GitHub Actions.
+
+[Руководство пользователя с иллюстрациями](https://github.com/yomezza/dbcatalog/wiki)
+
+## Новое в 0.12.0
+
+- Боковая панель «Рабочая область» сворачивается до иконок кнопкой со стрелкой рядом с заголовком. Повторное нажатие раскрывает её.
+- Режим запоминается на этом компьютере; подсказки, активный раздел, счётчик уведомлений и выход доступны в обоих видах.
+- Иконки выполнены в одном стиле; управление работает с клавиатуры и на небольших окнах. Новых миграций БД нет.
+- [Проверки выпуска](docs/validation-0.12.0.md).
 
 ## Скриншоты Linux
 

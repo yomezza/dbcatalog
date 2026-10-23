@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "0.11.0"
+#define AppVersion "0.12.0"
 #endif
 #ifndef AppExe
 #define AppExe "..\..\build\bin\CatalogDB.exe"

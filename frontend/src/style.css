@@ -1547,3 +1547,138 @@ body {
 .diagnostics-fields dt { color: var(--muted, #6b8597); }
 .diagnostics-fields dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 1150px) { .diagnostics-grid { grid-template-columns: 1fr; } }
+
+/* Workspace navigation keeps its controls available in both width modes. */
+.shell > .sidebar {
+  transition: width 0.18s ease;
+  overflow-x: hidden;
+}
+.workspace-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 22px;
+  flex-shrink: 0;
+}
+.workspace-heading .workspace-label {
+  margin: 0;
+  padding: 0 0 0 8px;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+}
+.sidebar-toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  padding: 4px;
+  border-color: #355065;
+  background: transparent;
+  color: #b9d1de;
+}
+.sidebar-toggle:hover {
+  background: #174256;
+}
+.sidebar-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  pointer-events: none;
+}
+.sidebar nav button {
+  position: relative;
+  min-height: 42px;
+  gap: 10px;
+  font-size: 13px;
+}
+.sidebar .nav-label {
+  min-width: 0;
+  line-height: 18px;
+}
+.sidebar-status {
+  display: flex;
+  align-items: center;
+  line-height: 18px;
+}
+.sidebar-status .dot {
+  flex: 0 0 7px;
+}
+.sidebar-connection,
+.sidebar-user-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 8px;
+}
+.sidebar-user-icon {
+  display: grid;
+  place-items: center;
+  color: #7d9bad;
+}
+.sidebar-bottom .sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+.sidebar button:focus-visible {
+  outline: 2px solid #55c7c8;
+  outline-offset: -3px;
+}
+.sidebar.is-collapsed {
+  width: 72px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.sidebar.is-collapsed .workspace-heading {
+  justify-content: center;
+}
+.sidebar.is-collapsed .sidebar-toggle .sidebar-icon {
+  transform: rotate(180deg);
+}
+.sidebar.is-collapsed .workspace-label,
+.sidebar.is-collapsed .nav-label,
+.sidebar.is-collapsed .sidebar-connection,
+.sidebar.is-collapsed .sidebar-user-details {
+  display: none;
+}
+.sidebar.is-collapsed nav button {
+  justify-content: center;
+  padding: 11px 8px;
+}
+.sidebar.is-collapsed .nav-counter {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 1px 4px;
+  font-size: 9px;
+  line-height: 13px;
+}
+.sidebar.is-collapsed .sidebar-bottom {
+  padding-left: 0;
+  padding-right: 0;
+}
+.sidebar.is-collapsed .sidebar-status,
+.sidebar.is-collapsed .sidebar-user {
+  justify-content: center;
+}
+.sidebar.is-collapsed .sidebar-status .dot {
+  margin: 0;
+}
+.sidebar.is-collapsed .sidebar-bottom .sidebar-logout {
+  justify-content: center;
+  width: 100%;
+  padding: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell > .sidebar {
+    transition: none;
+  }
+}

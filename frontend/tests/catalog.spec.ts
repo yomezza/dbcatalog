@@ -230,7 +230,7 @@ test("right-click adds child with the selected server and personal favorites can
     .filter({ hasText: "host-a" })
     .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Добавить в избранное" }).click();
-  await page.getByRole("button", { name: "★ Избранное", exact: true }).click();
+  await page.getByRole("button", { name: "Избранное", exact: true }).click();
   await expect(
     page.getByRole("cell", { name: "host-a", exact: true }),
   ).toBeVisible();
@@ -383,7 +383,7 @@ test("Excel requires explicit confirmation for catalog-only import and skipping 
     });
   });
   await page
-    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .getByRole("button", { name: "Экспорт/Импорт", exact: true })
     .click();
   await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
     name: "catalog.xlsx",
@@ -554,7 +554,7 @@ test("settings clearing requires two consecutive confirmations and is hidden fro
       },
     });
   });
-  await page.getByRole("button", { name: "⚙ Настройки", exact: true }).click();
+  await page.getByRole("button", { name: "Настройки", exact: true }).click();
   await page
     .getByRole("button", { name: "Очистить все записи каталога" })
     .click();
@@ -590,9 +590,9 @@ test("viewer has no clearing or audit controls in settings", async ({
 }) => {
   await login(page, "viewer");
   await expect(
-    page.getByRole("button", { name: "≡ Журнал аудита", exact: true }),
+    page.getByRole("button", { name: "Журнал аудита", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "⚙ Настройки", exact: true }).click();
+  await page.getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Настройки", exact: true }),
   ).toBeVisible();
@@ -634,7 +634,7 @@ test("audit filters send all terms and show details of a deleted object", async 
     });
   });
   await page
-    .getByRole("button", { name: "≡ Журнал аудита", exact: true })
+    .getByRole("button", { name: "Журнал аудита", exact: true })
     .click();
   await expect(
     page.getByRole("cell", { name: "Удаление ветви каталога", exact: true }),
@@ -714,7 +714,7 @@ test("audit details are a modal and restore focus after Escape", async ({
     }),
   );
   await page
-    .getByRole("button", { name: "≡ Журнал аудита", exact: true })
+    .getByRole("button", { name: "Журнал аудита", exact: true })
     .click();
   const more = page.getByRole("button", { name: "Подробнее", exact: true });
   await more.click();
@@ -753,7 +753,7 @@ test("download history opens files, reveals folders and saves a copy", async ({
       },
     });
   });
-  await page.getByRole("button", { name: "↓ Загрузки", exact: true }).click();
+  await page.getByRole("button", { name: "Загрузки", exact: true }).click();
   await expect(page.getByText("Каталог.xlsx", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Открыть", exact: true }).click();
   await page.getByRole("button", { name: "В папке", exact: true }).click();
@@ -835,7 +835,7 @@ test("an import error can be corrected and revalidated before confirmation", asy
     });
   });
   await page
-    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .getByRole("button", { name: "Экспорт/Импорт", exact: true })
     .click();
   await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
     name: "bad.xlsx",
@@ -951,7 +951,7 @@ test("statistics shows PostgreSQL counts and links to catalog search", async ({
       }),
     }),
   );
-  await page.getByRole("button", { name: "▥ Статистика", exact: true }).click();
+  await page.getByRole("button", { name: "Статистика", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Эффективная политика РК", exact: true }),
   ).toBeVisible();
@@ -1255,7 +1255,7 @@ test("import rows can be excluded, returned and bulk excluded before applying", 
     });
   });
   await page
-    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .getByRole("button", { name: "Экспорт/Импорт", exact: true })
     .click();
   await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
     name: "rows.xlsx",
@@ -1411,7 +1411,7 @@ test("policy history is paginated in a separate window and has administrator ver
     });
   });
   await page
-    .getByRole("button", { name: "◷ Политики РК", exact: true })
+    .getByRole("button", { name: "Политики РК", exact: true })
     .click();
   await page.getByRole("button", { name: "История", exact: true }).click();
   const dialog = page.getByRole("dialog", {
@@ -1608,13 +1608,13 @@ test("quality report opens the affected record and deleted branch conflicts prev
     });
   });
   await page
-    .getByRole("button", { name: "◇ Качество данных", exact: true })
+    .getByRole("button", { name: "Качество данных", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Открыть карточку", exact: true })
     .click();
   await expect(page.locator(".object-card")).toContainText("host-a");
-  await page.getByRole("button", { name: "♲ Удалённые", exact: true }).click();
+  await page.getByRole("button", { name: "Удалённые", exact: true }).click();
   await page
     .getByRole("button", { name: "Восстановить…", exact: true })
     .click();
@@ -1746,7 +1746,7 @@ test("policy import requires explicit missing parameters and a separate confirma
     });
   });
   await page
-    .getByRole("button", { name: "⇄ Экспорт/Импорт", exact: true })
+    .getByRole("button", { name: "Экспорт/Импорт", exact: true })
     .click();
   await page.getByLabel("Файл каталога (до 20 МБ)").setInputFiles({
     name: "policies.xlsx",
@@ -1819,7 +1819,7 @@ test("opening a favorite clears a filter that hides its branch", async ({
     .getByRole("combobox", { name: "Тип эксплуатации", exact: true })
     .selectOption("Тестовый");
   await expect(page.locator(".tree-node")).toHaveCount(0);
-  await page.getByRole("button", { name: "★ Избранное", exact: true }).click();
+  await page.getByRole("button", { name: "Избранное", exact: true }).click();
   await page.getByRole("button", { name: "payroll", exact: true }).click();
   await expect(page.locator(".tree-node.selected")).toContainText("payroll");
   await page.getByText("Фильтры баз данных", { exact: true }).click();

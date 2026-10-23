@@ -1,3 +1,4 @@
+import { version } from "../package.json";
 import type { Connection, Status } from "./api";
 import { ValueBadge } from "./ValueBadge";
 export function SettingsPanel({
@@ -72,7 +73,7 @@ export function SettingsPanel({
             </button>
           </section>
         )}
-        <p className="app-version">CatalogDB 0.6.0</p>
+        <p className="app-version">CatalogDB {version}</p>
       </div>
     </>
   );

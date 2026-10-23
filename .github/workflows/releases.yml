@@ -27,4 +27,4 @@ jobs:
           GH_TOKEN: ${{ secrets.CATALOGDB_RELEASE_TOKEN || github.token }}
         run: python3 packaging/publish-releases.py --publish
       - name: Link to published releases
-        run: echo 'Published versions and downloads → https://github.com/yomezza/test/releases' >> "$GITHUB_STEP_SUMMARY"
+        run: echo 'Published versions and downloads → https://github.com/yomezza/dbcatalog/releases' >> "$GITHUB_STEP_SUMMARY"

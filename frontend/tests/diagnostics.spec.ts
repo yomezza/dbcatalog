@@ -15,7 +15,7 @@ test.beforeEach(async({page})=>{
 });
 
 test("diagnostics works before login, refreshes migration results and handles save cancellation",async({page})=>{
- await page.getByRole("button",{name:"⊙ Диагностика"}).click();
+ await page.getByRole("button",{name:"Диагностика"}).click();
  await expect(page.getByRole("heading",{name:"Диагностика",exact:true})).toBeVisible();
  await expect(page.getByText("linux/amd64",{exact:true})).toBeVisible();
  await expect(page.getByText("Обращений ещё не было",{exact:true})).toBeVisible();
