@@ -151,6 +151,19 @@
         "downloads/CatalogDB-linux-x64-0.11.0.tar.gz",
         "downloads/CatalogDB-linux-x64-0.11.0.tar.gz.sha256"
       ]
+    },
+    {
+      "version": "0.12.0",
+      "commit": "e4a4208da46eb5784a04deb6329cd54b8b2ce0bb",
+      "title": "CatalogDB 0.12.0 — Компактная рабочая область",
+      "prerelease": true,
+      "body": "Рабочая область сворачивается до иконок кнопкой со стрелкой рядом с заголовком. Повторное нажатие раскрывает панель.\n\n- Выбранный вид запоминается на этом компьютере.\n- Единые иконки, подсказки разделов, активный пункт и счётчик уведомлений.\n- Выход и состояние подключения доступны в компактном режиме; навигация прокручивается на небольшом окне.\n- Управление с клавиатуры и работа без доступного localStorage.\n- Новых миграций БД нет, используется схема 016.\n\n### Скачать и запустить\n\nWindows x64: распакуйте ZIP и запустите CatalogDB.exe; требуется Microsoft Edge WebView2 Runtime.\nLinux x64: распакуйте TAR.GZ и запустите ./CatalogDB; нужны glibc 2.41+, GTK 3 и WebKitGTK 4.1.\nФайлы .sha256 содержат контрольные суммы архивов.\n\nПроверены Go с PostgreSQL 17 и race detector, TypeScript/Vite, 14 unit-тестов и 44 сценария браузерного интерфейса. Настоящая Linux-сборка проверена при 1440×1000 и 960×640, включая сохранение режима после перезапуска. Windows EXE собран; интерактивный Windows-прогон здесь не выполнялся.\n\n[Руководство с иллюстрациями](https://github.com/yomezza/dbcatalog/wiki) · [Проверки выпуска](https://github.com/yomezza/dbcatalog/blob/catalogdb-go/docs/validation-0.12.0.md)\n\nПредварительная сборка. Исходники и архивы: `e4a4208da46eb5784a04deb6329cd54b8b2ce0bb`.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.12.0.zip",
+        "downloads/CatalogDB-windows-x64-0.12.0.zip.sha256",
+        "downloads/CatalogDB-linux-x64-0.12.0.tar.gz",
+        "downloads/CatalogDB-linux-x64-0.12.0.tar.gz.sha256"
+      ]
     }
   ]
 }
