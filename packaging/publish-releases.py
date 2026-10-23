@@ -20,15 +20,23 @@ def run(*args, data=None):
 
 
 def api(path, method='GET', payload=None):
-    args = ['gh', 'api', path, '--method', method]
+    args = ['gh', 'api', path, '--method', method, '--include']
     data = None
     if payload is not None:
         args += ['--input', '-']
         data = json.dumps(payload).encode()
-    try:
-        return json.loads(run(*args, data=data))
-    except RuntimeError as error:
-        raise RuntimeError(f'{method} {path}: {error}') from error
+    result = subprocess.run(args, input=data, capture_output=True, cwd=ROOT)
+    response = result.stdout.decode(errors='replace')
+    parts = re.split(r'\r?\n\r?\n', response, maxsplit=1)
+    if result.returncode:
+        # Only permission-related response headers are exposed; never request headers.
+        permissions = [line for line in parts[0].splitlines()
+                       if line.lower().startswith(('x-accepted-github-permissions:', 'x-oauth-scopes:'))]
+        detail = result.stderr.decode(errors='replace').strip()
+        if permissions:
+            detail += '; ' + '; '.join(permissions)
+        raise RuntimeError(f'{method} {path}: {detail}')
+    return json.loads(parts[1] if len(parts) == 2 else response)
 
 
 def validate(manifest):
@@ -77,11 +85,15 @@ def publish(manifest):
             raise ValueError(f'Tag points to a different commit: {tag}')
         current = by_tag.get(tag)
         if current is None:
-            current = api(f'repos/{repo}/releases', 'POST', {
-                'tag_name': tag, 'target_commitish': release['commit'],
+            payload = {
+                'tag_name': tag,
                 'name': release['title'], 'body': release['body'],
                 'draft': True, 'prerelease': release['prerelease'], 'make_latest': 'false',
-            })
+            }
+            # Existing version tags already identify the exact source commit.
+            if ref.returncode != 0:
+                payload['target_commitish'] = release['commit']
+            current = api(f'repos/{repo}/releases', 'POST', payload)
         remote_assets = {asset['name']: asset for asset in current['assets']}
         for name in release['assets']:
             path = ROOT / name
