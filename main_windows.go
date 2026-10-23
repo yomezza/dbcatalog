@@ -24,7 +24,7 @@ func main() {
 		Title: "CatalogDB — Каталог БД", Width: 1280, Height: 820, MinWidth: 960, MinHeight: 640,
 		Frameless: true, BackgroundColour: &options.RGBA{R: 7, G: 19, B: 31, A: 255},
 		AssetServer: &assetserver.Options{Assets: assets},
-		OnStartup:   func(ctx context.Context) { app.ctx = ctx },
+		OnStartup:   app.startup,
 		OnShutdown:  func(context.Context) { app.service.Close() }, Bind: []interface{}{app},
 	})
 	if err != nil {

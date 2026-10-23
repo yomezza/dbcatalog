@@ -133,15 +133,11 @@ func (s *Service) DeletePolicy(id string, version int64) error {
 	if old.Version != version {
 		return errors.New("Политика изменена другим пользователем. Обновите список")
 	}
-	if err = s.archiveDeletion(ctx, tx, deletionPlan{preview: DeletionPreview{Kind: "policy", Name: old.Name}, policies: []Policy{old}}); err != nil {
-		return err
-	}
+
 	if _, err = tx.Exec(ctx, `DELETE FROM backup_policies WHERE id=$1`, id); err != nil {
 		return importDatabaseError(err)
 	}
-	if err = history(ctx, tx, s.user.ID, "delete", "policy", id, old, nil); err != nil {
-		return importDatabaseError(err)
-	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return importDatabaseError(err)
 	}

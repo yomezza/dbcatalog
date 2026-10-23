@@ -162,7 +162,11 @@ func (s *Service) ApplyBulkEdit(refs []ObjectRef, patch BulkPatch, fingerprint s
 	if err = s.authorize(ctx, tx, true, false); err != nil {
 		return 0, err
 	}
-	if _, err = tx.Exec(ctx, `LOCK TABLE servers,instances,databases,backup_policies IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+	ids := []string{}
+	for _, r := range refs {
+		ids = append(ids, r.ID)
+	}
+	if _, err = tx.Exec(ctx, `SELECT id FROM databases WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE`, ids); err != nil {
 		return 0, importDatabaseError(err)
 	}
 	plan, err := s.buildBulk(ctx, tx, refs, patch)
@@ -172,14 +176,16 @@ func (s *Service) ApplyBulkEdit(refs []ObjectRef, patch BulkPatch, fingerprint s
 	if plan.Fingerprint != fingerprint {
 		return 0, errors.New("Предпросмотр изменился. Проверьте его заново")
 	}
-	writer, err := s.catalogWriter(ctx, tx)
+	changes := []Object{}
+	for _, item := range plan.Items {
+		changes = append(changes, item.After)
+	}
+	raw, err := json.Marshal(changes)
 	if err != nil {
 		return 0, err
 	}
-	for _, item := range plan.Items {
-		if _, err = writer.saveObject(ctx, item.After, writeNormal); err != nil {
-			return 0, err
-		}
+	if _, err = tx.Exec(ctx, `SELECT api_bulk_update($1)`, raw); err != nil {
+		return 0, importDatabaseError(err)
 	}
 	details, _ := json.Marshal(map[string]int{"selected": plan.Selected, "changed": plan.Changed})
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_events(actor_id,action,entity,object_id,details)VALUES($1,'bulk_update','catalog',$2,$3)`, s.user.ID, security.ID(), details); err != nil {

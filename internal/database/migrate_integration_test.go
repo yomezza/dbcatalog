@@ -65,7 +65,7 @@ func TestMigrationIsolationRepeatabilityConcurrency(t *testing.T) {
 	}
 	for _, schema := range []string{a, b} {
 		var count int
-		if err := p.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{schema, "schema_migrations"}.Sanitize()).Scan(&count); err != nil || count != 9 {
+		if err := p.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{schema, "schema_migrations"}.Sanitize()).Scan(&count); err != nil || count != 16 {
 			t.Fatalf("ledger count %d: %v", count, err)
 		}
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/yomezza/test/internal/application"
 	"github.com/yomezza/test/internal/config"
 	"github.com/yomezza/test/internal/documents"
@@ -15,6 +16,10 @@ type App struct {
 	ctx     context.Context
 }
 
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	a.service.SetChangeHandler(func(change application.Change) { runtime.EventsEmit(ctx, "catalogdb:change", change) })
+}
 func NewApp() (*App, error) {
 	path, err := config.Path()
 	if err != nil {
@@ -33,8 +38,12 @@ func (a *App) Register(login, password string, bootstrap bool) error {
 func (a *App) Login(login, password string) (application.User, error) {
 	return a.service.Login(login, password)
 }
-func (a *App) Logout()                                  { a.service.Logout() }
-func (a *App) GetCatalog() (application.Catalog, error) { return a.service.GetCatalog() }
+func (a *App) LoginWithSession(login, password string, hours int) (application.User, error) {
+	return a.service.LoginWithSession(login, password, hours)
+}
+func (a *App) ResumeSession() (application.Status, error) { return a.service.ResumeSession() }
+func (a *App) Logout()                                    { a.service.Logout() }
+func (a *App) GetCatalog() (application.Catalog, error)   { return a.service.GetCatalog() }
 func (a *App) SaveObject(o application.Object) (application.Object, error) {
 	return a.service.SaveObject(o)
 }

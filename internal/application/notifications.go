@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"time"
 )
 
@@ -24,27 +23,6 @@ type NotificationPage struct {
 	Page   int            `json:"page"`
 }
 
-func notificationEvent(ctx context.Context, tx pgx.Tx, actor, action, entity, id string) error {
-	var err error
-	switch action {
-	case "register":
-		_, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity,object_id) SELECT a.id,'registration','Заявка на регистрацию',u.login||' ожидает подтверждения','user',u.id FROM users a CROSS JOIN users u WHERE a.role='admin' AND a.state='active' AND u.id=$1 AND u.state='pending'`, id)
-	case "user_password_change":
-		_, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity,object_id) SELECT id,'account','Пароль изменён','Администратор изменил пароль вашей учётной записи. Новый пароль применяется при следующем входе.','account',id FROM users WHERE id=$1`, id)
-	case "user_update":
-		_, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity,object_id) SELECT id,'account','Изменена учётная запись','Роль: '||CASE role WHEN 'admin' THEN 'Администратор' WHEN 'editor' THEN 'Редактор' ELSE 'Наблюдатель' END||'. Состояние: '||CASE state WHEN 'active' THEN 'Активна' WHEN 'pending' THEN 'Ожидает подтверждения' WHEN 'blocked' THEN 'Заблокирована' ELSE 'Отключена' END,'account',id FROM users WHERE id=$1`, id)
-	case "update", "delete", "restore":
-		if entity != "server" && entity != "instance" && entity != "database" {
-			return nil
-		}
-		title := "Изменён избранный объект"
-		if action == "delete" {
-			title = "Удалён избранный объект"
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO notifications(user_id,category,title,body,entity,object_id) SELECT f.user_id,'favorite',$4,coalesce((SELECT coalesce(after_state->>'name',before_state->>'name') FROM object_history WHERE entity=$2 AND object_id=$3 ORDER BY id DESC LIMIT 1),'Объект каталога'),$2,$3 FROM favorites f JOIN users u ON u.id=f.user_id WHERE (CASE $2 WHEN 'server' THEN f.server_id WHEN 'instance' THEN f.instance_id ELSE f.database_id END)=$3::uuid AND f.user_id<>$1 AND u.state='active'`, actor, entity, id, title)
-	}
-	return err
-}
 func (s *Service) GetNotifications(page int, unreadOnly bool) (NotificationPage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

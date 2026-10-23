@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/yomezza/test/internal/security"
 	"time"
 )
 
@@ -31,33 +30,6 @@ type RestorePreview struct {
 	Fingerprint string          `json:"fingerprint"`
 }
 
-func (s *Service) archiveDeletion(ctx context.Context, tx pgx.Tx, p deletionPlan) error {
-	batch := security.ID()
-	if _, err := tx.Exec(ctx, `INSERT INTO deleted_batches(id,kind,name,actor_id)VALUES($1,$2,$3,$4)`, batch, p.preview.Kind, p.preview.Name, s.user.ID); err != nil {
-		return importDatabaseError(err)
-	}
-	archive := func(kind, id string, v any) error {
-		raw, err := json.Marshal(v)
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO deleted_objects(entity,object_id,batch_id,snapshot,deleted_by)VALUES($1,$2,$3,$4,$5) ON CONFLICT(entity,object_id)DO UPDATE SET batch_id=excluded.batch_id,snapshot=excluded.snapshot,deleted_by=excluded.deleted_by,deleted_at=now(),restored_at=NULL,restored_by=NULL`, kind, id, batch, raw, s.user.ID)
-		return err
-	}
-	for _, list := range [][]Object{p.servers, p.instances, p.databases} {
-		for _, o := range list {
-			if err := archive(o.Kind, o.ID, o); err != nil {
-				return importDatabaseError(err)
-			}
-		}
-	}
-	for _, o := range p.policies {
-		if err := archive("policy", o.ID, o); err != nil {
-			return importDatabaseError(err)
-		}
-	}
-	return nil
-}
 func (s *Service) ListDeleted(page int) (DeletedPage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -141,9 +113,34 @@ func (s *Service) restoreDeletedPlan(ctx context.Context, tx pgx.Tx, kind, id st
 			out.Items = append(out.Items, r)
 		}
 	}
-	// Include current catalog and policy versions in the confirmation to invalidate stale parent checks.
+	// Track selected records, their parents and name conflicts, not unrelated catalog changes.
 	var stamps []byte
-	err = tx.QueryRow(ctx, `SELECT coalesce(jsonb_agg(x ORDER BY kind,id),'[]') FROM(SELECT 'server' kind,id,version FROM servers UNION ALL SELECT 'instance',id,version FROM instances UNION ALL SELECT 'database',id,version FROM databases UNION ALL SELECT 'policy',id,version FROM backup_policies)x`).Scan(&stamps)
+	relevant := []string{}
+	names := []string{}
+	for _, item := range out.Items {
+		relevant = append(relevant, item.ID)
+		var ref struct {
+			ParentID string `json:"parentId"`
+			ObjectID string `json:"objectId"`
+			Name     string `json:"name"`
+		}
+		if err = json.Unmarshal(item.Snapshot, &ref); err != nil {
+			return out, err
+		}
+		if ref.ParentID != "" {
+			relevant = append(relevant, ref.ParentID)
+		}
+		if ref.ObjectID != "" {
+			relevant = append(relevant, ref.ObjectID)
+		}
+		names = append(names, ref.Name)
+	}
+	err = tx.QueryRow(ctx, `WITH ids AS(SELECT unnest($1::uuid[])id UNION SELECT server_id FROM instances WHERE id=ANY($1::uuid[])),
+ relevant AS(
+ SELECT entity kind,id,version FROM v_catalog_objects WHERE id IN(SELECT id FROM ids) OR(parent_id IN(SELECT id FROM ids) AND name=ANY($2::text[]))
+ OR(entity='server' AND lower(btrim(name)) IN(SELECT lower(btrim(n)) FROM unnest($2::text[])n))
+ UNION ALL SELECT 'policy',id,version FROM backup_policies WHERE id=ANY($1::uuid[]) OR instance_id IN(SELECT id FROM ids) OR database_id IN(SELECT id FROM ids)
+ ) SELECT coalesce(jsonb_agg(x ORDER BY kind,id),'[]')FROM relevant x`, relevant, names).Scan(&stamps)
 	if err != nil {
 		return out, err
 	}
@@ -156,51 +153,16 @@ func (s *Service) restoreDeletedPlan(ctx context.Context, tx pgx.Tx, kind, id st
 	return out, nil
 }
 func (s *Service) restoreDeletedRecords(ctx context.Context, tx pgx.Tx, p RestorePreview) error {
-	writer, err := s.catalogWriter(ctx, tx)
+	refs := []map[string]string{}
+	for _, r := range p.Items {
+		refs = append(refs, map[string]string{"kind": r.Kind, "id": r.ID})
+	}
+	raw, err := json.Marshal(refs)
 	if err != nil {
 		return err
 	}
-	for _, r := range p.Items {
-		var version int64
-		if err := tx.QueryRow(ctx, `SELECT coalesce(max(version),0) FROM record_versions WHERE entity=$1 AND object_id=$2`, r.Kind, r.ID).Scan(&version); err != nil {
-			return err
-		}
-		if r.Kind == "policy" {
-			var o Policy
-			if err := json.Unmarshal(r.Snapshot, &o); err != nil {
-				return err
-			}
-			o.ID = r.ID
-			o.Version = version
-			if _, err := writer.savePolicy(ctx, o, writeRecreateDeleted); err != nil {
-				return fmt.Errorf("%s: проверьте родителя и занятость назначения: %w", r.Name, err)
-			}
-		} else {
-			var o Object
-			if err := json.Unmarshal(r.Snapshot, &o); err != nil {
-				return err
-			}
-			o.ID = r.ID
-			o.Kind = r.Kind
-			o.Version = version
-			if o.Kind == "server" {
-				var exists bool
-				if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM servers WHERE lower(trim(name))=lower(trim($1)))`, o.Name).Scan(&exists); err != nil {
-					return err
-				}
-				if exists {
-					return fmt.Errorf("Имя сервера «%s» уже занято", o.Name)
-				}
-			}
-			if _, err := writer.saveObject(ctx, o, writeRecreateDeleted); err != nil {
-				return fmt.Errorf("%s: проверьте родителя и конфликт имени: %w", r.Name, err)
-			}
-		}
-		if _, err := tx.Exec(ctx, `UPDATE deleted_objects SET restored_at=now(),restored_by=$3 WHERE entity=$1 AND object_id=$2`, r.Kind, r.ID, s.user.ID); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err = tx.Exec(ctx, `SELECT api_restore_records($1)`, raw)
+	return importDatabaseError(err)
 }
 func (s *Service) PreviewDeletedRestore(kind, id string, branch bool) (RestorePreview, error) {
 	s.mu.Lock()

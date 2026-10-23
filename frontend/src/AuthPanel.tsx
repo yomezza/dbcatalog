@@ -6,6 +6,8 @@ interface Props {
   register: boolean;
   login: string;
   userPassword: string;
+  sessionHours: number;
+  setSessionHours: (v: number) => void;
   busy: boolean;
   setLogin: (v: string) => void;
   setUserPassword: (v: string) => void;
@@ -17,6 +19,8 @@ export function AuthPanel({
   register,
   login,
   userPassword,
+  sessionHours,
+  setSessionHours,
   busy,
   setLogin,
   setUserPassword,
@@ -67,6 +71,24 @@ export function AuthPanel({
               onChange={(e) => setUserPassword(e.target.value)}
             />
           </Field>
+          {!status.needsAdmin && !register && (
+            <Field label="Сохранить вход на (часов)">
+              <input
+                type="number"
+                aria-label="Сохранить вход на (часов)"
+                min={0}
+                max={168}
+                step={1}
+                required
+                value={sessionHours}
+                onChange={(e) => setSessionHours(Number(e.target.value))}
+              />
+              <small className="muted">
+                0 — не сохранять; от 1 до 168 часов — вход без повторного ввода
+                пароля на этом компьютере.
+              </small>
+            </Field>
+          )}
           <button className="primary">
             {status.needsAdmin
               ? "Создать администратора"

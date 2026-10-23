@@ -15,7 +15,7 @@ type workspaceBarrier struct {
 }
 
 func (b *workspaceBarrier) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
-	if strings.Contains(data.SQL, "lookup_values") {
+	if strings.Contains(data.SQL, "lookup_values") || strings.Contains(data.SQL, "api_lookups") {
 		b.once.Do(func() {
 			close(b.started)
 			select {

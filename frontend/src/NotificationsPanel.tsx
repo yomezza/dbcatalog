@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, type Notification, type NotificationPage } from "./api";
 export function NotificationsPanel({
+  revision = 0,
   busy,
   run,
   onUnread,
   onNavigate,
 }: {
+  revision?: number;
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
   onUnread: (count: number) => void;
@@ -20,8 +22,8 @@ export function NotificationsPanel({
       onUnread(next.unread);
     });
   useEffect(() => {
-    void load();
-  }, []);
+    void load(data?.page ?? 0);
+  }, [revision]);
   async function mark(ids: string[], all = false) {
     await api().MarkNotificationsRead(ids, all);
     const next = await api().GetNotifications(data?.page ?? 0, onlyUnread);

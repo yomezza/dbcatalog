@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/yomezza/test/internal/security"
 )
 
 type DeletionPreview struct {
@@ -232,35 +233,12 @@ func (s *Service) deleteTree(kind, id string, version int64, fingerprint string)
 	if fingerprint != "" && fingerprint != plan.preview.Fingerprint {
 		return DeletionPreview{}, errors.New("Состав или данные удаляемых записей изменились. Закройте подтверждение и проверьте состав заново")
 	}
-	if err = s.archiveDeletion(ctx, tx, plan); err != nil {
-		return DeletionPreview{}, err
-	}
+	pids := []string{}
 	for _, p := range plan.policies {
-		if err = history(ctx, tx, s.user.ID, "delete", "policy", p.ID, p, nil); err != nil {
-			return DeletionPreview{}, importDatabaseError(err)
-		}
-		tag, e := tx.Exec(ctx, `DELETE FROM backup_policies WHERE id=$1`, p.ID)
-		if e != nil {
-			return DeletionPreview{}, importDatabaseError(e)
-		}
-		if tag.RowsAffected() != 1 {
-			return DeletionPreview{}, errors.New("Политика не удалена; операция отменена")
-		}
+		pids = append(pids, p.ID)
 	}
-	for _, objects := range [][]Object{plan.databases, plan.instances, plan.servers} {
-		for _, o := range objects {
-			if err = history(ctx, tx, s.user.ID, "delete", o.Kind, o.ID, o, nil); err != nil {
-				return DeletionPreview{}, importDatabaseError(err)
-			}
-			t, _ := table(o.Kind)
-			tag, e := tx.Exec(ctx, "DELETE FROM "+t+" WHERE id=$1", o.ID)
-			if e != nil {
-				return DeletionPreview{}, importDatabaseError(e)
-			}
-			if tag.RowsAffected() != 1 {
-				return DeletionPreview{}, errors.New("Запись не удалена; операция отменена")
-			}
-		}
+	if _, err = tx.Exec(ctx, `SELECT api_delete_records($1,$2,$3,$4,$5,$6,$7)`, objectIDs(plan.servers), objectIDs(plan.instances), objectIDs(plan.databases), pids, security.ID(), kind, plan.preview.Name); err != nil {
+		return DeletionPreview{}, importDatabaseError(err)
 	}
 	details, _ := json.Marshal(map[string]int{"servers": plan.preview.Servers, "instances": plan.preview.Instances, "databases": plan.preview.Databases, "policies": plan.preview.Policies})
 	action := "cascade_delete"

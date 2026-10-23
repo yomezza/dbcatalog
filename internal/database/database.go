@@ -35,6 +35,7 @@ func PoolConfig(c config.Connection, password string) (*pgxpool.Config, error) {
 	p.ConnConfig.ConnectTimeout = 10 * time.Second
 	p.ConnConfig.RuntimeParams["search_path"] = pgx.Identifier{c.Schema}.Sanitize() + ", pg_catalog, pg_temp"
 	p.ConnConfig.RuntimeParams["application_name"] = "CatalogDB"
+	p.ConnConfig.RuntimeParams["catalogdb.protocol"] = "2"
 	return p, nil
 }
 func Open(ctx context.Context, c config.Connection, password string) (*pgxpool.Pool, error) {
@@ -79,6 +80,21 @@ func PublicError(err error) string {
 			return "Указанная база данных не существует. Создайте её на PostgreSQL."
 		case "40001", "40P01":
 			return "Данные изменились параллельно. Обновите список и повторно проверьте операцию."
+		case "CD010":
+			return "Некорректные параметры записи или запроса."
+		case "CD011":
+			label := map[string]string{"status": "Состояние", "environment": "Тип эксплуатации", "dbms": "Тип СУБД", "domain": "Доменное членство", "connectionMethod": "Подключение к серверу", "administration": "Работа АБД", "backupType": "Тип РК"}[pg.Detail]
+			return "Выберите значение из справочника «" + label + "»"
+		case "CD012":
+			return "Недостаточно прав или сессия недействительна."
+		case "CD013":
+			return "Объект не найден."
+		case "CD016":
+			return "Обновите CatalogDB: эта версия клиента несовместима с обновлённой схемой."
+		case "CD015":
+			return "Сохранённые версии изменять или удалять нельзя. Возврат создаёт новую версию."
+		case "CD014":
+			return "Объект изменён другим пользователем. Обновите данные и повторите предпросмотр."
 		case "23505":
 			return "Запись с таким уникальным значением уже существует."
 		case "23503":

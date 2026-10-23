@@ -10,13 +10,11 @@ import (
 type catalogWriter struct {
 	service    *Service
 	tx         pgx.Tx
-	choices    choiceSet
 	moveReason string
 }
 
 func (s *Service) catalogWriter(ctx context.Context, tx pgx.Tx) (catalogWriter, error) {
-	choices, err := loadChoices(ctx, tx)
-	return catalogWriter{service: s, tx: tx, choices: choices}, err
+	return catalogWriter{service: s, tx: tx}, nil
 }
 
 type writeMode uint8

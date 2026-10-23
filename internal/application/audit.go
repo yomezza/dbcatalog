@@ -120,7 +120,7 @@ func (s *Service) GetAudit(filter AuditFilter) (AuditPage, error) {
 	for _, term := range terms {
 		add("position(lower($%d) in lower(concat_ws(' ',id,actor,action,action_label,entity,object_id,object_name,details::text)))>0", term)
 	}
-	cte := `WITH events AS (SELECT a.id::text AS id,a.id AS sort_id,a.actor_id,COALESCE(u.login,'Не определён') AS actor,a.action,COALESCE($1::jsonb->>a.action,a.action) AS action_label,a.entity,COALESCE(a.object_id::text,'') AS object_id,COALESCE(h.name,'') AS object_name,a.created_at,a.details FROM audit_events a LEFT JOIN users u ON u.id=a.actor_id LEFT JOIN LATERAL (SELECT COALESCE(after_state->>'name',before_state->>'name') AS name FROM object_history WHERE entity=a.entity AND object_id=a.object_id ORDER BY id DESC LIMIT 1) h ON true) `
+	cte := `WITH events AS (SELECT a.id::text AS id,a.id AS sort_id,a.actor_id,COALESCE(u.login,'Не определён') AS actor,a.action,COALESCE($1::jsonb->>a.action,a.action) AS action_label,a.entity,COALESCE(a.object_id::text,'') AS object_id,COALESCE(a.details->>'objectName',h.name,'') AS object_name,a.created_at,a.details FROM audit_events a LEFT JOIN users u ON u.id=a.actor_id LEFT JOIN LATERAL (SELECT COALESCE(after_state->>'name',before_state->>'name') AS name FROM object_history WHERE entity=a.entity AND object_id=a.object_id ORDER BY id DESC LIMIT 1) h ON NOT(a.details?'objectName')) `
 	conditions := strings.Join(where, " AND ")
 	if err = tx.QueryRow(ctx, cte+"SELECT count(*) FROM events WHERE "+conditions, args...).Scan(&result.Total); err != nil {
 		return result, importDatabaseError(err)

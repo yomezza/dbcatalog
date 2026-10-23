@@ -14,6 +14,7 @@ const entityLabels: Record<string, string> = {
   export: "Экспорт",
 };
 const detailLabels: Record<string, string> = {
+  objectName: "Объект",
   selected: "Выбрано БД",
   changed: "Изменено БД",
   servers: "Серверы",

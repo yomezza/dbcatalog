@@ -70,6 +70,17 @@ async function login(page: Page, role = "admin", expand = true) {
             }),
             IsSetupMode: async () => false,
             Login: async () => user,
+            LoginWithSession: async (
+              login: string,
+              password: string,
+              _hours: number,
+            ) => window.go!.main.App.Login(login, password),
+            ResumeSession: async () => ({
+              connected: true,
+              schema: "dbcatalog",
+              needsAdmin: false,
+              user: null,
+            }),
             GetWorkspace: async () => {
               const backend = window.go!.main.App;
               return {
@@ -2393,4 +2404,150 @@ test("administrator changes any user's password including their own without edit
   await expect
     .poll(() => page.evaluate(() => (window as any).__passwordChanges.length))
     .toBe(2);
+});
+
+test("login offers a session lifetime and resumes a saved login after restart", async ({
+  page,
+}) => {
+  await login(page);
+  await page.evaluate(() => {
+    window.go!.main.App.Logout = async () => {};
+    window.go!.main.App.LoginWithSession = async (login, _password, hours) => {
+      (window as any).__sessionHours = hours;
+      return { id: "u1", login, role: "admin", state: "active" };
+    };
+  });
+  await page.getByRole("button", { name: "Выйти", exact: true }).click();
+  await expect(
+    page.getByLabel("Сохранить вход на (часов)", { exact: true }),
+  ).toHaveValue("0");
+  await page.getByLabel("Логин *", { exact: true }).fill("admin");
+  await page
+    .getByLabel("Пароль *", { exact: true })
+    .fill("long-enough-password");
+  await page.getByLabel("Сохранить вход на (часов)", { exact: true }).fill("4");
+  await page.getByRole("button", { name: "Войти", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Общий каталог", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__sessionHours)).toBe(4);
+  await page.addInitScript(() => {
+    const backend = window.go!.main.App;
+    const get = backend.GetConnection;
+    backend.GetConnection = async () => ({
+      ...(await get()),
+      hasPassword: true,
+    });
+    backend.ResumeSession = async () => {
+      (window as any).__resumed = true;
+      return {
+        connected: true,
+        schema: "dbcatalog",
+        needsAdmin: false,
+        user: { id: "u1", login: "admin", role: "admin", state: "active" },
+      };
+    };
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Общий каталог", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__resumed)).toBe(true);
+  await expect(page.getByLabel("Пароль *", { exact: true })).toHaveCount(0);
+});
+
+test("live changes update the selected card while preserving an open edit and handle session revocation", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    (window as any).__liveHandlers = {};
+    window.runtime = {
+      WindowMinimise() {},
+      WindowToggleMaximise() {},
+      Quit() {},
+      EventsOn(name, callback) {
+        (window as any).__liveHandlers[name] = callback;
+        return () => {
+          delete (window as any).__liveHandlers[name];
+        };
+      },
+    };
+  });
+  await login(page);
+  await page.evaluate(() => {
+    const backend = window.go!.main.App;
+    backend.GetStatus = async () => ({
+      connected: true,
+      schema: "dbcatalog",
+      needsAdmin: false,
+      user: { id: "u1", login: "admin", role: "admin", state: "active" },
+    });
+    backend.GetNotifications = async () => ({
+      items: [],
+      total: 0,
+      page: 0,
+      unread: 3,
+    });
+  });
+  await page.locator(".tree-node").filter({ hasText: "payroll" }).click();
+  await expect(page.locator(".detail-panel")).toContainText("payroll");
+  await page.evaluate(async () => {
+    const catalog = await window.go!.main.App.GetCatalog();
+    catalog.databases[0].description = "Изменение другого клиента";
+    (window as any).__liveHandlers["catalogdb:change"]({
+      schema: "other_schema",
+      type: "catalog_changed",
+    });
+  });
+  await expect(page.locator(".detail-panel")).not.toContainText(
+    "Изменение другого клиента",
+  );
+  await page.evaluate(() =>
+    (window as any).__liveHandlers["catalogdb:change"]({
+      schema: "dbcatalog",
+      type: "catalog_changed",
+    }),
+  );
+  await expect(page.locator(".detail-panel")).toContainText(
+    "Изменение другого клиента",
+  );
+  await page
+    .locator(".detail-panel")
+    .getByRole("button", { name: "Изменить", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel("SID / имя базы данных *", { exact: true })
+    .fill("Мой несохранённый SID");
+  await page.evaluate(() =>
+    (window as any).__liveHandlers["catalogdb:change"]({
+      schema: "dbcatalog",
+      type: "catalog_changed",
+    }),
+  );
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "Введённые данные сохранены",
+  );
+  await expect(
+    dialog.getByLabel("SID / имя базы данных *", { exact: true }),
+  ).toHaveValue("Мой несохранённый SID");
+  await dialog.getByRole("button", { name: "Отмена", exact: true }).click();
+  await page.evaluate(() => {
+    window.go!.main.App.GetStatus = async () => ({
+      connected: true,
+      schema: "dbcatalog",
+      needsAdmin: false,
+      user: null,
+    });
+    (window as any).__liveHandlers["catalogdb:change"]({
+      schema: "dbcatalog",
+      type: "users_changed",
+    });
+  });
+  await expect(
+    page.getByRole("heading", { name: "Вход в CatalogDB", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "Сессия завершена",
+  );
 });

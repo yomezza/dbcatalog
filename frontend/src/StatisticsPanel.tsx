@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { api, type Statistics, type Distribution } from "./api";
 import { Stat } from "./components";
 export function StatisticsPanel({
+  revision = 0,
   busy,
   run,
   onSearch,
 }: {
+  revision?: number;
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
   onSearch: (query: string) => void;
@@ -14,7 +16,7 @@ export function StatisticsPanel({
   const load = () => run(async () => setData(await api().GetStatistics()));
   useEffect(() => {
     void load();
-  }, []);
+  }, [revision]);
   function chart(title: string, rows: Distribution[], instances = false) {
     const max = Math.max(1, ...rows.map((r) => r.databases));
     return (

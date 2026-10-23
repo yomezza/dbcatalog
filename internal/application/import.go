@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
@@ -46,7 +47,7 @@ func (s *Service) buildImportPlan(ctx context.Context, tx pgx.Tx, wb spreadsheet
 	return s.buildImportPlanExcluded(ctx, tx, wb, map[int]bool{})
 }
 func (s *Service) buildImportPlanExcluded(ctx context.Context, tx pgx.Tx, wb spreadsheet.Workbook, excluded map[int]bool) (*importPlan, error) {
-	idx, err := loadIndex(ctx, tx)
+	idx, err := loadIndex(ctx, tx, wb)
 	if err != nil {
 		return nil, importDatabaseError(err)
 	}
@@ -206,7 +207,7 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 	if _, err = tx.Exec(ctx, `LOCK TABLE servers,instances,databases,backup_policies IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		return result, importDatabaseError(err)
 	}
-	idx, err := loadIndex(ctx, tx)
+	idx, err := loadIndex(ctx, tx, plan.workbook)
 	if err != nil {
 		return result, importDatabaseError(err)
 	}
@@ -222,10 +223,7 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			return result, errors.New("Политики РК изменились. Повторите предпросмотр")
 		}
 	}
-	writer, err := s.catalogWriter(ctx, tx)
-	if err != nil {
-		return result, err
-	}
+	ops := []stagedWrite{}
 	importedRows := map[int]bool{}
 	for _, item := range plan.items {
 		if len(item.errors) > 0 {
@@ -233,7 +231,7 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			continue
 		}
 		sk, ik, dk := item.keys()
-		server, err := writer.saveImportedObject(ctx, idx.servers[sk], item.server, &result)
+		server, err := prepareImportedObject(idx.servers[sk], item.server, &result, &ops)
 		if err != nil {
 			return ImportResult{}, err
 		}
@@ -242,14 +240,14 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 			item.database.ParentID = server.ID
 		} else {
 			item.instance.ParentID = server.ID
-			instance, err := writer.saveImportedObject(ctx, idx.instances[ik], item.instance, &result)
+			instance, err := prepareImportedObject(idx.instances[ik], item.instance, &result, &ops)
 			if err != nil {
 				return ImportResult{}, err
 			}
 			idx.instances[ik] = instance
 			item.database.ParentID = instance.ID
 		}
-		db, err := writer.saveImportedObject(ctx, idx.databases[dk], item.database, &result)
+		db, err := prepareImportedObject(idx.databases[dk], item.database, &result, &ops)
 		if err != nil {
 			return ImportResult{}, err
 		}
@@ -272,14 +270,19 @@ func (s *Service) ApplyExcel(token string, skipInvalid, catalogOnly bool) (Impor
 		if p.ObjectID == "" {
 			return ImportResult{}, errors.New("Объект назначения политики не найден")
 		}
-		if _, err = writer.savePolicy(ctx, p, writeNormal); err != nil {
-			return ImportResult{}, err
+		raw, e := json.Marshal(p)
+		if e != nil {
+			return ImportResult{}, e
 		}
+		ops = append(ops, stagedWrite{"policy", raw, p.Version, 0})
 		if p.ID == "" {
 			result.PoliciesCreated++
 		} else {
 			result.PoliciesUpdated++
 		}
+	}
+	if err = applyStagedWrites(ctx, tx, ops); err != nil {
+		return ImportResult{}, err
 	}
 	if err = event(ctx, tx, s.user.ID, "excel_import", "import", security.ID()); err != nil {
 		return ImportResult{}, importDatabaseError(err)

@@ -110,7 +110,7 @@ func (s *Service) attachImportPolicies(ctx context.Context, tx pgx.Tx, plan *imp
 	if err != nil {
 		return err
 	}
-	idx, err := loadIndex(ctx, tx)
+	idx, err := loadIndex(ctx, tx, plan.workbook)
 	if err != nil {
 		return err
 	}

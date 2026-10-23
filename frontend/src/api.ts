@@ -410,6 +410,12 @@ interface Backend {
   GetStatus(): Promise<Status>;
   Register(login: string, password: string, bootstrap: boolean): Promise<void>;
   Login(login: string, password: string): Promise<User>;
+  LoginWithSession(
+    login: string,
+    password: string,
+    hours: number,
+  ): Promise<User>;
+  ResumeSession(): Promise<Status>;
   Logout(): Promise<void>;
   GetCatalog(): Promise<Catalog>;
   SaveObject(o: CatalogObject): Promise<CatalogObject>;
@@ -442,6 +448,10 @@ declare global {
       WindowMinimise(): void;
       WindowToggleMaximise(): void;
       Quit(): void;
+      EventsOn?(
+        name: string,
+        callback: (change: { schema: string; type: string }) => void,
+      ): () => void;
     };
   }
 }

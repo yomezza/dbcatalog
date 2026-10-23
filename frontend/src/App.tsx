@@ -28,6 +28,7 @@ import {
   type DeletionPreview,
 } from "./api";
 import { UserRow } from "./components";
+import { useLiveUpdates } from "./features/live/useLiveUpdates";
 import { UserPasswordDialog } from "./UserPasswordDialog";
 import { ConnectionPanel } from "./ConnectionPanel";
 import { AuthPanel } from "./AuthPanel";
@@ -72,6 +73,9 @@ export function App() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  const [sessionHours, setSessionHours] = useState(0);
+  const [liveDirty, setLiveDirty] = useState(false);
+  const [liveRevision, setLiveRevision] = useState(0);
   const [login, setLogin] = useState(""),
     [userPassword, setUserPassword] = useState(""),
     [register, setRegister] = useState(false);
@@ -134,10 +138,15 @@ export function App() {
     showContext(o, e.clientX, e.clientY);
   }
 
-  async function showObject(kind: Kind, id: string, reveal: boolean) {
+  async function showObject(
+    kind: Kind,
+    id: string,
+    reveal: boolean,
+    isCurrent = () => true,
+  ) {
     const request = ++selectionRequest.current;
     const context = await api().GetObjectContext(kind, id);
-    if (request !== selectionRequest.current) return;
+    if (request !== selectionRequest.current || !isCurrent()) return;
     setSelected(context.object);
     setCatalog(context.catalog);
     setPolicies(context.policies);
@@ -240,8 +249,14 @@ export function App() {
       setUseSaved(saved.hasPassword);
       if (saved.hasPassword && !(await api().IsSetupMode())) {
         const result = await api().Connect(saved.connection, "", true, false);
-        setStatus(result);
-        setView("auth");
+        const resumed = result.needsAdmin
+          ? result
+          : await api().ResumeSession();
+        setStatus(resumed);
+        if (resumed.user) {
+          await loadCatalog();
+          setView("catalog");
+        } else setView("auth");
       }
     });
   }, []);
@@ -254,6 +269,7 @@ export function App() {
     if (!status.user) {
       setUnread(0);
       setRootSeed(null);
+      setLiveDirty(false);
       browser.reset();
       return;
     }
@@ -267,15 +283,14 @@ export function App() {
       }
     };
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 30000);
     return () => {
       live = false;
-      window.clearInterval(timer);
     };
   }, [status.user?.id, status.schema]);
 
-  async function loadCatalog() {
+  async function loadCatalog(isCurrent = () => true) {
     const workspace = await api().GetCatalogWorkspace();
+    if (!isCurrent()) return emptyCatalog;
     setRootSeed(workspace.root);
     setLookups(workspace.lookups);
     setFavorites(workspace.favorites);
@@ -283,8 +298,9 @@ export function App() {
     browser.clearSelection();
     if (selected) {
       try {
-        await showObject(selected.kind, selected.id, false);
+        await showObject(selected.kind, selected.id, false, isCurrent);
       } catch {
+        if (!isCurrent()) return emptyCatalog;
         setSelected(null);
         setPolicies([]);
       }
@@ -354,7 +370,12 @@ export function App() {
       setFavorites([]);
       setLookups({});
       setPolicies([]);
-      setView("auth");
+      const resumed = result.needsAdmin ? result : await api().ResumeSession();
+      setStatus(resumed);
+      if (resumed.user) {
+        await loadCatalog();
+        setView("catalog");
+      } else setView("auth");
     });
   };
   const authSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -373,7 +394,11 @@ export function App() {
               : "Ожидайте подтверждения администратора."),
         );
       } else {
-        const user = await api().Login(login, userPassword);
+        const user = await api().LoginWithSession(
+          login,
+          userPassword,
+          sessionHours,
+        );
         setStatus((s) => ({ ...s, user }));
         setUserPassword("");
         await loadCatalog();
@@ -381,6 +406,78 @@ export function App() {
       }
     });
   };
+  useLiveUpdates(
+    status.user?.id,
+    status.schema,
+    busy,
+    async (types, isCurrent) => {
+      if (types.has("users_changed") || types.has("resync")) {
+        const fresh = await api().GetStatus();
+        if (!isCurrent()) return;
+        setStatus(fresh);
+        if (!fresh.user) {
+          setSelected(null);
+          setEditor(null);
+          setPolicyEditor(null);
+          setCatalog(emptyCatalog);
+          setView("auth");
+          setMessage("Сессия завершена. Войдите повторно.");
+          return;
+        }
+        if (fresh.user.role !== status.user?.role) {
+          setRecordWindow(null);
+          setDeletion(null);
+          setView("catalog");
+        }
+        if (view === "users" && fresh.user.role === "admin") {
+          const users = await api().ListUsers();
+          if (!isCurrent()) return;
+          setUsers(users);
+        }
+      }
+      const notifications = await api().GetNotifications(0, true);
+      if (!isCurrent()) return;
+      setUnread(notifications.unread);
+      if (types.has("catalog_changed") || types.has("resync")) {
+        if (editor || policyEditor || browser.bulkOpen) {
+          setLiveDirty(true);
+          setMessage(
+            "Каталог изменился. Введённые данные сохранены; при сохранении будет проверена актуальная версия.",
+          );
+        } else {
+          await loadCatalog(isCurrent);
+          if (!isCurrent()) return;
+          setLiveDirty(false);
+          setLiveRevision((v) => v + 1);
+        }
+      } else if (types.has("notifications_changed"))
+        setLiveRevision((v) => v + 1);
+    },
+  );
+  useEffect(() => {
+    if (
+      liveDirty &&
+      !busy &&
+      !editor &&
+      !policyEditor &&
+      !browser.bulkOpen &&
+      status.user
+    ) {
+      void loadCatalog()
+        .then(() => {
+          setLiveDirty(false);
+          setLiveRevision((v) => v + 1);
+        })
+        .catch(() => {});
+    }
+  }, [
+    liveDirty,
+    busy,
+    editor,
+    policyEditor,
+    browser.bulkOpen,
+    status.user?.id,
+  ]);
   return (
     <>
       <header className="titlebar">
@@ -511,6 +608,7 @@ export function App() {
           {view === "downloads" && <DownloadsPanel busy={busy} run={run} />}
           {view === "notifications" && (
             <NotificationsPanel
+              revision={liveRevision}
               busy={busy}
               run={run}
               onUnread={setUnread}
@@ -519,6 +617,7 @@ export function App() {
           )}
           {view === "statistics" && (
             <StatisticsPanel
+              revision={liveRevision}
               busy={busy}
               run={run}
               onSearch={(q) => {
@@ -549,6 +648,8 @@ export function App() {
               register={register}
               login={login}
               userPassword={userPassword}
+              sessionHours={sessionHours}
+              setSessionHours={setSessionHours}
               busy={busy}
               setLogin={setLogin}
               setUserPassword={setUserPassword}
@@ -618,7 +719,7 @@ export function App() {
           )}
           {view === "policies" && (
             <PoliciesPanel
-              revision={catalogRevision}
+              revision={catalogRevision + liveRevision}
               busy={busy}
               canEdit={!!canEdit}
               canDelete={status.user?.role === "admin"}

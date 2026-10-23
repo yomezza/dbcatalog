@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -44,16 +43,19 @@ type SavedConnection struct {
 	HasPassword bool              `json:"hasPassword"`
 }
 type Service struct {
-	pendingImport *importPlan
-	mu            sync.Mutex
-	pool          *pgxpool.Pool
-	schema        string
-	connectionKey string
-	user          *User
-	path          string
-	store         CredentialStore
-	nextLogin     time.Time
-	dummyHash     string
+	pendingImport  *importPlan
+	mu             sync.Mutex
+	pool           *pgxpool.Pool
+	schema         string
+	connectionKey  string
+	user           *User
+	path           string
+	store          CredentialStore
+	nextLogin      time.Time
+	live           liveState
+	sessionID      string
+	sessionExpires time.Time
+	dummyHash      string
 }
 
 func New(path string, store CredentialStore) *Service {
@@ -63,6 +65,7 @@ func New(path string, store CredentialStore) *Service {
 func (s *Service) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.stopLiveLocked()
 	if s.pool != nil {
 		s.pool.Close()
 		s.pool = nil
@@ -97,7 +100,7 @@ func (s *Service) Connect(c config.Connection, password string, useSaved, rememb
 			return Status{}, errors.New("Сохранённый пароль не найден для этого подключения и схемы")
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	pool, err := database.Open(ctx, c, password)
 	if err != nil {
@@ -106,6 +109,10 @@ func (s *Service) Connect(c config.Connection, password string, useSaved, rememb
 	if err = database.Migrate(ctx, pool, c.Schema); err != nil {
 		pool.Close()
 		return Status{}, errors.New("Не удалось автоматически обновить выбранную схему. " + database.PublicError(err))
+	}
+	if _, err = pool.Exec(ctx, `SELECT maintain_catalog_partitions()`); err != nil {
+		pool.Close()
+		return Status{}, errors.New("Не удалось подготовить секции аудита. " + database.PublicError(err))
 	}
 	if remember {
 		if err = s.store.Set("CatalogDB", c.CredentialKey(), password); err != nil {
@@ -117,17 +124,34 @@ func (s *Service) Connect(c config.Connection, password string, useSaved, rememb
 		pool.Close()
 		return Status{}, errors.New("Не удалось сохранить несекретные настройки подключения")
 	}
+	s.stopLiveLocked()
 	if s.pool != nil {
 		s.pool.Close()
 	}
 	s.pool = pool
 	s.schema = c.Schema
 	s.connectionKey = c.CredentialKey()
+	s.startLiveLocked()
 	s.user = nil
+	s.sessionID = ""
+	s.sessionExpires = time.Time{}
 	s.pendingImport = nil
 	return s.status(ctx)
 }
 func (s *Service) status(ctx context.Context) (Status, error) {
+	if s.user != nil && s.pool != nil {
+		var fresh User
+		err := s.pool.QueryRow(ctx, `SELECT id::text,login,role,state FROM users WHERE id=$1 AND state='active' AND($2::uuid IS NULL OR EXISTS(SELECT 1 FROM user_sessions WHERE id=$2 AND user_id=users.id AND revoked_at IS NULL AND expires_at>now()))`, s.user.ID, nullableID(s.sessionID)).Scan(&fresh.ID, &fresh.Login, &fresh.Role, &fresh.State)
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.user = nil
+			s.sessionID = ""
+			s.sessionExpires = time.Time{}
+		} else if err != nil {
+			return Status{}, importDatabaseError(err)
+		} else {
+			s.user = &fresh
+		}
+	}
 	result := Status{Connected: s.pool != nil, Schema: s.schema, User: s.user}
 	if s.pool == nil {
 		return result, nil
@@ -233,12 +257,17 @@ func (s *Service) Login(login, password string) (User, error) {
 		return User{}, errors.New(database.PublicError(err))
 	}
 	s.pendingImport = nil
+	s.sessionID = ""
+	s.sessionExpires = time.Time{}
 	s.user = &u
 	return u, nil
 }
 func (s *Service) Logout() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s.clearSavedSessionLocked(ctx)
 	s.user = nil
 	s.pendingImport = nil
 }
@@ -246,9 +275,13 @@ func (s *Service) authorize(ctx context.Context, tx pgx.Tx, write, admin bool) e
 	if s.user == nil {
 		return errors.New("Войдите в приложение")
 	}
-	var role, state string
-	if err := tx.QueryRow(ctx, `SELECT role,state FROM users WHERE id=$1 FOR SHARE`, s.user.ID).Scan(&role, &state); err != nil {
+	var role, state, actor string
+	var valid bool
+	if err := tx.QueryRow(ctx, `SELECT role,state,($2::uuid IS NULL OR EXISTS(SELECT 1 FROM user_sessions WHERE id=$2 AND user_id=users.id AND revoked_at IS NULL AND expires_at>now())),set_config('catalogdb.actor_id',id::text,true) FROM users WHERE id=$1 FOR SHARE`, s.user.ID, nullableID(s.sessionID)).Scan(&role, &state, &valid, &actor); err != nil {
 		return errors.New("Сессия недействительна")
+	}
+	if !valid {
+		return errors.New("Срок сохранённого входа истёк или вход отозван. Войдите повторно")
 	}
 	if state != "active" || (write && role == "viewer") || (admin && role != "admin") {
 		return errors.New("Недостаточно прав")
@@ -260,26 +293,5 @@ func event(ctx context.Context, tx pgx.Tx, actor, action, entity, id string) err
 	if err != nil {
 		return err
 	}
-	return notificationEvent(ctx, tx, actor, action, entity, id)
-}
-func history(ctx context.Context, tx pgx.Tx, actor, action, entity, id string, before, after any) error {
-	var b, a []byte
-	var err error
-	if before != nil {
-		b, err = json.Marshal(before)
-		if err != nil {
-			return err
-		}
-	}
-	if after != nil {
-		a, err = json.Marshal(after)
-		if err != nil {
-			return err
-		}
-	}
-	_, err = tx.Exec(ctx, `INSERT INTO object_history(entity,object_id,action,actor_id,before_state,after_state) VALUES($1,$2,$3,$4,$5,$6)`, entity, id, action, actor, b, a)
-	if err != nil {
-		return err
-	}
-	return event(ctx, tx, actor, action, entity, id)
+	return nil
 }

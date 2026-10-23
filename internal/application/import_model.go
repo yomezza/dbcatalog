@@ -2,8 +2,9 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
+	"github.com/yomezza/test/internal/security"
 	"reflect"
 	"strings"
 	"time"
@@ -54,12 +55,37 @@ func (item importItem) keys() (string, string, string) {
 	}
 	return sk, ik, dk
 }
-func loadIndex(ctx context.Context, tx pgx.Tx) (objectIndex, error) {
+func loadIndex(ctx context.Context, tx pgx.Tx, workbooks ...spreadsheet.Workbook) (objectIndex, error) {
+	names := []string{}
+	instanceNames := []string{}
+	databaseNames := []string{}
+	if len(workbooks) > 0 {
+		for _, r := range workbooks[0].Rows {
+			names = append(names, strings.TrimSpace(r.Values[4]))
+			instanceNames = append(instanceNames, r.Values[1])
+			databaseNames = append(databaseNames, r.Values[0])
+		}
+	}
 	idx := objectIndex{map[string]Object{}, map[string]Object{}, map[string]Object{}, map[string]bool{}}
 	serverIDs, instanceIDs := map[string]string{}, map[string]string{}
 	for _, kind := range []string{"server", "instance", "database"} {
 		t, _ := table(kind)
-		rows, err := tx.Query(ctx, "SELECT (to_jsonb(t)-'search_text') FROM "+t+" t ORDER BY id")
+		condition := "true"
+		args := []any{}
+		if len(workbooks) > 0 {
+			args = append(args, names)
+			switch kind {
+			case "server":
+				condition = "lower(btrim(name)) IN(SELECT lower(btrim(x)) FROM unnest($1::text[])x)"
+			case "instance":
+				args = append(args, instanceNames)
+				condition = "name=ANY($2::text[]) AND server_id IN(SELECT id FROM servers WHERE lower(btrim(name)) IN(SELECT lower(btrim(x)) FROM unnest($1::text[])x))"
+			case "database":
+				args = append(args, instanceNames, databaseNames)
+				condition = "name=ANY($3::text[]) AND(server_id IN(SELECT id FROM servers WHERE lower(btrim(name)) IN(SELECT lower(btrim(x)) FROM unnest($1::text[])x)) OR instance_id IN(SELECT id FROM instances WHERE name=ANY($2::text[]) AND server_id IN(SELECT id FROM servers WHERE lower(btrim(name)) IN(SELECT lower(btrim(x)) FROM unnest($1::text[])x))))"
+			}
+		}
+		rows, err := tx.Query(ctx, "SELECT (to_jsonb(t)-'search_text') FROM "+t+" t WHERE "+condition+" ORDER BY id", args...)
 		if err != nil {
 			return idx, err
 		}
@@ -210,21 +236,37 @@ func ensureUnchanged(idx objectIndex, versions map[string]objectStamp) error {
 	}
 	return nil
 }
-func (w catalogWriter) saveImportedObject(ctx context.Context, old, incoming Object, result *ImportResult) (Object, error) {
+
+type stagedWrite struct {
+	kind     string
+	payload  []byte
+	expected int64
+	mode     int
+}
+
+func prepareImportedObject(old, incoming Object, result *ImportResult, ops *[]stagedWrite) (Object, error) {
 	if old.ID != "" {
 		incoming = mergeObject(old, incoming)
 		if sameObject(old, incoming) {
 			return old, nil
 		}
+	} else {
+		incoming.ID = security.ID()
+		incoming.Version = 0
 	}
-	saved, err := w.saveObject(ctx, incoming, writeNormal)
+	if incoming.Status == "" {
+		incoming.Status = "Эксплуатируется"
+	}
+	raw, err := json.Marshal(incoming)
 	if err != nil {
-		return saved, fmt.Errorf("Не удалось сохранить объект импорта: %w", err)
+		return incoming, err
 	}
+	*ops = append(*ops, stagedWrite{incoming.Kind, raw, incoming.Version, 0})
+	incoming.Version++
 	if old.ID != "" {
 		result.ObjectsUpdated++
 	} else {
-		switch saved.Kind {
+		switch incoming.Kind {
 		case "server":
 			result.ServersCreated++
 		case "instance":
@@ -233,6 +275,28 @@ func (w catalogWriter) saveImportedObject(ctx context.Context, old, incoming Obj
 			result.DatabasesCreated++
 		}
 	}
-	return saved, nil
+	return incoming, nil
 }
-func importDatabaseError(err error) error { return errors.New(database.PublicError(err)) }
+func applyStagedWrites(ctx context.Context, tx pgx.Tx, ops []stagedWrite) error {
+	if len(ops) == 0 {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `CREATE TEMP TABLE catalog_write_stage(seq bigint,kind text,payload jsonb,expected bigint,mode integer) ON COMMIT DROP`); err != nil {
+		return importDatabaseError(err)
+	}
+	rows := make([][]any, 0, len(ops))
+	for n, o := range ops {
+		rows = append(rows, []any{int64(n), o.kind, o.payload, o.expected, o.mode})
+	}
+	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"pg_temp", "catalog_write_stage"}, []string{"seq", "kind", "payload", "expected", "mode"}, pgx.CopyFromRows(rows)); err != nil {
+		return importDatabaseError(err)
+	}
+	_, err := tx.Exec(ctx, `SELECT api_apply_staged_writes()`)
+	return importDatabaseError(err)
+}
+func importDatabaseError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return errors.New(database.PublicError(err))
+}
