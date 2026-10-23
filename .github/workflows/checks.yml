@@ -60,7 +60,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Old installer failed' }
           & $iscc packaging/inno_setup/catalogdb.iss
           if ($LASTEXITCODE -ne 0) { throw 'New installer failed' }
-          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.9.0.exe -ExpectedExe build/bin/CatalogDB.exe
+          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.10.0.exe -ExpectedExe build/bin/CatalogDB.exe
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -71,4 +71,29 @@ jobs:
           name: CatalogDB-windows-x64
           path: |
             build/bin/CatalogDB.exe
-            build/bin/CatalogDB_Setup_0.9.0.exe
+            build/bin/CatalogDB_Setup_0.10.0.exe
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install desktop dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev xvfb xauth dbus-x11 xdotool
+      - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
+      - run: bash packaging/build-linux.sh
+      - name: Check desktop launch
+        run: dbus-run-session -- xvfb-run -a bash packaging/linux-smoke.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CatalogDB-linux-x64
+          path: |
+            build/bin/CatalogDB-linux-x64-*.tar.gz*
+            build/linux-launch.log

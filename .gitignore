@@ -18,3 +18,6 @@ frontend/playwright-report/
 
 # Wails dependency-install cache
 frontend/package.json.md5
+
+# Local graphical smoke logs
+build/linux-launch.log

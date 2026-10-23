@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=CatalogDB
+Comment=Каталог инфраструктуры баз данных
+Exec=CatalogDB
+Icon=catalogdb
+Terminal=false
+Categories=Office;Database;
+StartupWMClass=CatalogDB

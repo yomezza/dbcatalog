@@ -6,11 +6,9 @@ import (
 	"errors"
 	"github.com/yomezza/test/internal/application"
 	"golang.org/x/sys/windows"
-	"net"
 	"os/exec"
 	"strings"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
@@ -38,24 +36,26 @@ func openLocalFile(path string, reveal bool) error {
 		params = "/select," + syscall.EscapeArg(path)
 	}
 	if err := shellOpen(file, params); err != nil {
-		return errors.New("Не удалось открыть файл. Проверьте наличие приложения для XLSX")
+		return errors.New("Не удалось открыть файл. Проверьте ассоциацию файлов и наличие подходящего приложения")
 	}
 	return nil
 }
 func startServerConnection(t application.ServerConnection) error {
-	client, port := "mstsc.exe", "3389"
+	port, err := connectionPort(t)
+	if err != nil {
+		return err
+	}
+	client := "mstsc.exe"
 	if t.Method == "SSH" {
-		client, port = "ssh.exe", "22"
+		client = "ssh.exe"
 	}
 	path, err := exec.LookPath(client)
 	if err != nil {
 		return errors.New("Не найден клиент " + client + ". Установите соответствующий компонент Windows")
 	}
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(t.Host, port), 4*time.Second)
-	if err != nil {
-		return errors.New("Сервер недоступен на порту " + port + ". Проверьте адрес, сеть и службу " + t.Method)
+	if err := checkServerReachable(t.Host, port); err != nil {
+		return err
 	}
-	conn.Close()
 	if t.Method == "SSH" {
 		if err = shellOpen(path, "-- "+syscall.EscapeArg(t.Host)); err != nil {
 			return errors.New("Не удалось открыть окно SSH-клиента")
