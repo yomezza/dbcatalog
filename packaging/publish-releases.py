@@ -111,4 +111,11 @@ if __name__ == '__main__':
     manifest = json.loads((ROOT / 'packaging/releases/manifest.json').read_text())
     validate(manifest)
     if args.publish:
-        publish(manifest)
+        try:
+            publish(manifest)
+        except Exception as error:
+            # Surface API failures in public Actions annotations, even when logs
+            # require sign-in. The message contains no token or authentication headers.
+            message = str(error).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+            print('::error title=Release publication failed::' + message, flush=True)
+            raise
