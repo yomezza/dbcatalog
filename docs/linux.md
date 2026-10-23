@@ -1,5 +1,7 @@
 # CatalogDB для Linux
 
+[Скриншоты приложения в Linux](linux-screenshots.md)
+
 Linux и Windows используют один интерфейс, Wails App и backend. Платформенные
 операции находятся в desktop_windows.go и desktop_linux.go; проверка протокола
 и доступности сервера — в desktop_connection.go. Основная точка входа общая:

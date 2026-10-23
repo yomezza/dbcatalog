@@ -10,6 +10,14 @@
 
 На странице выпуска выберите нужный архив в разделе **Assets**. Распакуйте и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; для Windows нужен Microsoft Edge WebView2 Runtime, для Linux — GTK/WebKitGTK; нужна доступная PostgreSQL. Это предварительная сборка, работа на Windows пока не проверена. Архив соответствует исходникам этой версии; после изменения кода его нужно пересобирать. Последующие сборки предусмотрены как артефакты GitHub Actions.
 
+## Скриншоты Linux
+
+Настоящая Linux-сборка с демонстрационным каталогом: Debian 13, Wails/WebKitGTK, PostgreSQL 17.
+
+![CatalogDB в Linux: карточка базы данных](docs/images/linux/02-database-card.png)
+
+[Все 9 скриншотов: каталог, политики РК, статистика, инструкции, версии и аудит](docs/linux-screenshots.md).
+
 ## Новое в 0.10.0
 
 - Общая точка входа Wails и интерфейс для Windows/Linux.
