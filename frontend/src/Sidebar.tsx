@@ -1,5 +1,6 @@
 import type { Status } from "./api";
 export type View =
+  | "diagnostics"
   | "connection"
   | "auth"
   | "catalog"
@@ -26,6 +27,7 @@ const sections: { view: View; label: string; admin?: boolean }[] = [
   { view: "statistics", label: "▥ Статистика" },
   { view: "users", label: "♙ Пользователи", admin: true },
   { view: "audit", label: "≡ Журнал аудита", admin: true },
+  { view: "diagnostics", label: "⊙ Диагностика" },
   { view: "settings", label: "⚙ Настройки" },
 ];
 const roleLabels = {
@@ -57,7 +59,7 @@ export function Sidebar({
           .map((s) => (
             <button
               key={s.view}
-              disabled={busy || (!status.user && s.view !== "settings")}
+              disabled={busy || (!status.user && s.view !== "settings" && s.view !== "diagnostics")}
               className={
                 view === s.view ||
                 (view === "connection" && s.view === "settings")

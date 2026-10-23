@@ -45,6 +45,7 @@ import { NotificationsPanel } from "./NotificationsPanel";
 import { StatisticsPanel } from "./StatisticsPanel";
 import { Sidebar, type View } from "./Sidebar";
 import type { Notification } from "./api";
+import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { AuditPanel } from "./AuditPanel";
 
 const initialConnection: Connection = {
@@ -563,6 +564,7 @@ export function App() {
               Выполняется операция…
             </div>
           )}
+          {view === "diagnostics" && <DiagnosticsPanel busy={busy} run={run} />}
           {view === "settings" && (
             <SettingsPanel
               connection={settingsConnection}

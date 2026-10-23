@@ -43,24 +43,26 @@ type SavedConnection struct {
 	HasPassword bool              `json:"hasPassword"`
 }
 type Service struct {
-	pendingImport  *importPlan
-	mu             sync.Mutex
-	pool           *pgxpool.Pool
-	schema         string
-	connectionKey  string
-	user           *User
-	path           string
-	store          CredentialStore
-	nextLogin      time.Time
-	live           liveState
-	sessionID      string
-	sessionExpires time.Time
-	dummyHash      string
+	credentialHealth *credentialObservation
+	pendingImport    *importPlan
+	mu               sync.Mutex
+	pool             *pgxpool.Pool
+	schema           string
+	connectionKey    string
+	user             *User
+	path             string
+	store            CredentialStore
+	nextLogin        time.Time
+	live             liveState
+	sessionID        string
+	sessionExpires   time.Time
+	dummyHash        string
 }
 
 func New(path string, store CredentialStore) *Service {
 	hash, _ := security.Hash(security.ID())
-	return &Service{path: path, store: store, dummyHash: hash}
+	health := &credentialObservation{State: "unexamined"}
+	return &Service{path: path, store: observedCredentials{store, health}, credentialHealth: health, dummyHash: hash}
 }
 func (s *Service) Close() {
 	s.mu.Lock()

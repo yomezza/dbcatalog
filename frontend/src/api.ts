@@ -1,3 +1,12 @@
+export interface Diagnostics {
+ generatedAt: string; appVersion: string; goVersion: string; wailsVersion: string;
+ platform: string; revision: string; modified: boolean; configState: string;
+ credentialBackend: string; credentialState: string; credentialCheckedAt: string;
+ databaseState: string; postgresqlVersion: string; readOnly: boolean; tls: boolean;
+ poolConnections: number; poolMaximum: number; migrationState: string;
+ migrations: {version: number; state: string}[];
+ listener: {state: string; connectedAt: string; lastEventAt: string};
+}
 export interface Connection {
   host: string;
   port: number;
@@ -408,6 +417,8 @@ interface Backend {
     remember: boolean,
   ): Promise<Status>;
   GetStatus(): Promise<Status>;
+  GetDiagnostics(): Promise<Diagnostics>;
+  SaveDiagnosticsReport(): Promise<boolean>;
   Register(login: string, password: string, bootstrap: boolean): Promise<void>;
   Login(login: string, password: string): Promise<User>;
   LoginWithSession(

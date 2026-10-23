@@ -1540,3 +1540,10 @@ body {
   height: 100%;
   overflow: auto;
 }
+
+.diagnostics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px; }
+.diagnostics-fields { display: grid; gap: 14px; }
+.diagnostics-fields > div { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 1.5fr); gap: 16px; }
+.diagnostics-fields dt { color: var(--muted, #6b8597); }
+.diagnostics-fields dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 1150px) { .diagnostics-grid { grid-template-columns: 1fr; } }

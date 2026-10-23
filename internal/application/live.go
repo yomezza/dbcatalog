@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,8 @@ type Change struct {
 	Type   string `json:"type"`
 }
 type liveState struct {
+	healthMu   sync.Mutex
+	health     ListenerDiagnostic
 	cancel     context.CancelFunc
 	generation atomic.Uint64
 	handler    func(Change)
@@ -28,7 +31,10 @@ func (s *Service) SetChangeHandler(handler func(Change)) {
 	s.startLiveLocked()
 }
 func (s *Service) stopLiveLocked() {
+	s.live.healthMu.Lock()
 	s.live.generation.Add(1)
+	s.live.health = ListenerDiagnostic{State: "stopped"}
+	s.live.healthMu.Unlock()
 	if s.live.cancel != nil {
 		s.live.cancel()
 		s.live.cancel = nil
@@ -46,10 +52,14 @@ func (s *Service) startLiveLocked() {
 	schema := s.schema
 	handler := s.live.handler
 	generation := s.live.generation.Load()
+	s.live.updateHealth(generation, "connecting", false)
 	go func() {
 		delay := time.Second
 		emit := func(c Change) {
 			if ctx.Err() == nil && s.live.generation.Load() == generation {
+				if c.Type != "resync" {
+					s.live.updateHealth(generation, "listening", true)
+				}
 				handler(c)
 			}
 		}
@@ -59,6 +69,7 @@ func (s *Service) startLiveLocked() {
 				_, err = conn.Exec(ctx, "LISTEN catalogdb_events")
 				if err == nil {
 					delay = time.Second
+					s.live.updateHealth(generation, "listening", false)
 					emit(Change{schema, "resync"})
 					for ctx.Err() == nil {
 						notification, e := conn.WaitForNotification(ctx)
@@ -76,6 +87,7 @@ func (s *Service) startLiveLocked() {
 				_ = conn.Close(closeCtx)
 				closeCancel()
 			}
+			s.live.updateHealth(generation, "retrying", false)
 			timer := time.NewTimer(delay)
 			select {
 			case <-ctx.Done():
@@ -91,4 +103,19 @@ func (s *Service) startLiveLocked() {
 			}
 		}
 	}()
+}
+
+func (l *liveState) updateHealth(generation uint64, state string, event bool) {
+	l.healthMu.Lock()
+	defer l.healthMu.Unlock()
+	if l.generation.Load() != generation {
+		return
+	}
+	if state == "listening" && l.health.State != "listening" {
+		l.health.ConnectedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	l.health.State = state
+	if event {
+		l.health.LastEventAt = time.Now().UTC().Format(time.RFC3339)
+	}
 }
