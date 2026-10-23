@@ -6,7 +6,7 @@
 
 [Все версии на GitHub Releases](https://github.com/yomezza/test/releases) · [История выпусков](docs/releases.md)
 
-[CatalogDB 0.10.0 для Windows x64](https://github.com/yomezza/test/releases/download/v0.10.0/CatalogDB-windows-x64-0.10.0.zip) · [Linux x64](https://github.com/yomezza/test/releases/download/v0.10.0/CatalogDB-linux-x64-0.10.0.tar.gz) · [Linux: запуск и сборка](docs/linux.md)
+[CatalogDB 0.11.0 для Windows x64](https://github.com/yomezza/test/releases/download/v0.11.0/CatalogDB-windows-x64-0.11.0.zip) · [Linux x64](https://github.com/yomezza/test/releases/download/v0.11.0/CatalogDB-linux-x64-0.11.0.tar.gz) · [Linux: запуск и сборка](docs/linux.md)
 
 На странице выпуска выберите нужный архив в разделе **Assets**. Распакуйте и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; для Windows нужен Microsoft Edge WebView2 Runtime, для Linux — GTK/WebKitGTK; нужна доступная PostgreSQL. Это предварительная сборка, работа на Windows пока не проверена. Архив соответствует исходникам этой версии; после изменения кода его нужно пересобирать. Последующие сборки предусмотрены как артефакты GitHub Actions.
 
@@ -16,7 +16,7 @@
 
 ![CatalogDB в Linux: карточка базы данных](docs/images/linux/02-database-card.png)
 
-[Все 9 скриншотов: каталог, политики РК, статистика, инструкции, версии и аудит](docs/linux-screenshots.md).
+[Все 10 скриншотов: каталог, политики РК, статистика, инструкции, версии и аудит](docs/linux-screenshots.md).
 
 ## Новое в 0.11.0
 

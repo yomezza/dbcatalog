@@ -1,6 +1,6 @@
 # CatalogDB в Linux — скриншоты
 
-Настоящая Linux x64 сборка CatalogDB 0.10.0, запущенная в Debian 13:
+Настоящая Linux x64 сборка CatalogDB 0.10.0 (для снимка диагностики — 0.11.0), запущенная в Debian 13:
 Wails 2.17.0, GTK 3, WebKitGTK 4.1, PostgreSQL 17. Снимки сделаны
 23 октября 2026 года из окна приложения размером 1440 × 1000 под Xvfb.
 Это облачная графическая сессия, без оформления GNOME/KDE.
@@ -60,3 +60,7 @@ Wails 2.17.0, GTK 3, WebKitGTK 4.1, PostgreSQL 17. Снимки сделаны
 
 [Скачать Linux-сборку](https://github.com/yomezza/test/releases/tag/v0.10.0) ·
 [Запуск и зависимости](linux.md)
+
+## Диагностика (0.11.0)
+
+![Диагностика приложения в Linux](images/linux/10-diagnostics.png)
