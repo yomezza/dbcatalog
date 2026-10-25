@@ -127,7 +127,12 @@ jobs:
           java-version: '21'
       - uses: android-actions/setup-android@v3
       - name: Install pinned Android tools
+        shell: bash
         run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/catalogdb-android-tools.log"
+          trap 'status=$?; if (( status != 0 )); then echo "::error title=Android tool installation::$(tail -c 4000 "$log" | tr "\r\n" "  ")"; fi' EXIT
+          exec > >(tee "$log") 2>&1
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
           go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20261011034528-197770444867
           gomobile init
@@ -139,9 +144,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          log="$RUNNER_TEMP/catalogdb-android-build.log"
+          trap 'status=$?; if (( status != 0 )); then echo "::error title=Android package build::$(tail -c 4000 "$log" | tr "\r\n" "  ")"; fi' EXIT
+          exec > >(tee "$log") 2>&1
           umask 077
           signing_dir=$(mktemp -d "$RUNNER_TEMP/catalogdb-signing.XXXXXX")
-          trap 'rm -rf "$signing_dir"' EXIT
+          trap 'status=$?; rm -rf "$signing_dir"; if (( status != 0 )); then echo "::error title=Android package build::$(tail -c 4000 "$log" | tr "\r\n" "  ")"; fi' EXIT
           openssl rand -hex 32 > "$signing_dir/password"
           keytool -genkeypair -noprompt -storetype PKCS12 \
             -keystore "$signing_dir/test-only.p12" -alias catalogdb-ci \
