@@ -41,10 +41,11 @@ public final class NativeSmoke extends Instrumentation {
             check(diagnostics.getString("platform").startsWith("android/"), "Go is not running on Android");
             check(diagnostics.getString("credentialBackend").equals("Android Keystore"), "Wrong native credential store");
             if ("resume".equals(arguments.getString("phase"))) {
-                // App startup itself reconnects using the encrypted stored password.
+                // Explicit reconnect avoids racing React's automatic reconnect.
                 JSONObject saved = (JSONObject) call("GetConnection");
                 check(saved.getBoolean("hasPassword"), "Encrypted password not recovered after process restart");
                 check(saved.getJSONObject("connection").getString("schema").equals(schema), "Wrong resumed schema");
+                call("Connect", saved.getJSONObject("connection"), "", true, false);
                 JSONObject state = (JSONObject) call("ResumeSession");
                 check(!state.isNull("user"), "Saved session token did not resume");
                 check(((JSONObject) call("GetCatalog")).getJSONArray("servers").length() == 1, "Catalog not preserved");
