@@ -101,6 +101,16 @@ jobs:
 
   android:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: catalogdb
+          POSTGRES_PASSWORD: catalogdb-test-only
+          POSTGRES_DB: catalogdb_test
+        ports: ['55432:5432']
+        options: --health-cmd "pg_isready -U catalogdb -d catalogdb_test" --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -142,6 +152,38 @@ jobs:
           export CATALOGDB_ANDROID_STORE_PASS_FILE="$signing_dir/password"
           export CATALOGDB_ANDROID_KEY_PASS_FILE="$signing_dir/password"
           bash packaging/build-android.sh
+          CATALOGDB_ANDROID_SMOKE_PREPARE_ONLY=1 bash packaging/android-native-smoke.sh android_smoke_ci create
+      - name: Enable KVM for native Android verification
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify real WebView, Go, PostgreSQL and Keystore
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: Nexus 7
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: |
+            adb install --no-incremental -r build/bin/CatalogDB-android-*.apk
+            adb install --no-incremental -r build/android/catalogdb-native-smoke.apk
+            adb shell am instrument -w -e schema android_smoke_ci -e phase create ru.dbcatalog.smoke/ru.dbcatalog.smoke.NativeSmoke > build/android/native-create.log
+            cat build/android/native-create.log
+            if ! grep -q '^PASS: Android' build/android/native-create.log; then echo '::error title=Android native create::'"$(tail -c 1000 build/android/native-create.log | tr '\n' ' ')"; exit 1; fi
+            adb shell am force-stop ru.dbcatalog.app
+            adb shell am instrument -w -e schema android_smoke_ci -e phase resume ru.dbcatalog.smoke/ru.dbcatalog.smoke.NativeSmoke > build/android/native-resume.log
+            cat build/android/native-resume.log
+            if ! grep -q '^PASS: Android' build/android/native-resume.log; then echo '::error title=Android native resume::'"$(tail -c 1000 build/android/native-resume.log | tr '\n' ' ')"; exit 1; fi
+            adb shell am force-stop ru.dbcatalog.app
+            adb shell am start -n ru.dbcatalog.app/.MainActivity
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CatalogDB-android-native-report
+          path: build/android/*.log
       - uses: actions/upload-artifact@v4
         with:
           name: CatalogDB-android-CI-test-only-not-release

@@ -35,6 +35,10 @@ install -m 600 "$CATALOGDB_ANDROID_KEY_PASS_FILE" "$work/key-password"
 "$tools/apksigner" sign --ks "$CATALOGDB_ANDROID_KEYSTORE" --ks-key-alias "$CATALOGDB_ANDROID_KEY_ALIAS" \
   --ks-pass "file:$work/store-password" --key-pass "file:$work/key-password" \
   --out "$work/signed.apk" "$work/aligned.apk"
+if [[ "${CATALOGDB_ANDROID_SMOKE_PREPARE_ONLY:-0}" == 1 ]]; then
+  install -m 644 "$work/signed.apk" build/android/catalogdb-native-smoke.apk
+  exit 0
+fi
 "$adb" install --no-incremental -r "$work/signed.apk"
 "$adb" shell am instrument -w -e schema "$schema" -e phase "$phase" \
   ru.dbcatalog.smoke/ru.dbcatalog.smoke.NativeSmoke | tee "$work/result.txt"

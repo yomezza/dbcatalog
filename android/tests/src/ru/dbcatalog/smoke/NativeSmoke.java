@@ -84,7 +84,7 @@ public final class NativeSmoke extends Instrumentation {
         CountDownLatch ready = new CountDownLatch(1);
         AtomicReference<String> output = new AtomicReference<>();
         runOnMainSync(() -> web.evaluateJavascript(script, value -> { output.set(value); ready.countDown(); }));
-        check(ready.await(30, TimeUnit.SECONDS), "WebView callback timed out");
+        check(ready.await(120, TimeUnit.SECONDS), "WebView callback timed out");
         return new JSONTokener(output.get()).nextValue();
     }
     private Object call(String method, Object... values) throws Exception {
