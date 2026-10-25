@@ -199,9 +199,20 @@ install -m 600 "$CATALOGDB_ANDROID_KEY_PASS_FILE" "$work/key-password"
   --ks-key-alias "$CATALOGDB_ANDROID_KEY_ALIAS" \
   --ks-pass "file:$work/store-password" \
   --key-pass "file:$work/key-password" \
-  --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+  --v1-signer-name CERT \
+  --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled false \
+  --v4-signing-enabled false \
   --out "$work/signed.apk" "$work/aligned.apk"
 "$tools/apksigner" verify --verbose --print-certs "$work/signed.apk"
+# Modern verification skips v1 when v2 is present. Check the JAR signature
+# independently as well, since vendor installers may inspect it first.
+"$tools/apksigner" verify --verbose --min-sdk-version 21 --max-sdk-version 23 "$work/signed.apk"
+python3 - "$work/signed.apk" <<'PY'
+import sys,zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    required={'META-INF/CERT.RSA','META-INF/CERT.SF','META-INF/MANIFEST.MF'}
+    if not required.issubset(archive.namelist()):raise SystemExit('Standard v1 certificate entries missing')
+PY
 "$tools/zipalign" -c -P 16 4 "$work/signed.apk"
 install -m 644 "$work/signed.apk" "$output"
 python3 - "$output" <<'PY'

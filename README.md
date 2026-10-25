@@ -10,11 +10,18 @@
 
 [Все версии на GitHub Releases](https://github.com/yomezza/dbcatalog/releases) · [История выпусков](docs/releases.md)
 
-[CatalogDB 0.13.0 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.0/CatalogDB-windows-x64-0.13.0.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.0/CatalogDB-linux-x64-0.13.0.tar.gz) · [Android APK](https://github.com/yomezza/dbcatalog/releases/download/v0.13.0/CatalogDB-android-0.13.0.apk)
+[CatalogDB 0.13.1 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.1/CatalogDB-windows-x64-0.13.1.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.1/CatalogDB-linux-x64-0.13.1.tar.gz) · [Android APK](https://github.com/yomezza/dbcatalog/releases/download/v0.13.1/CatalogDB-android-0.13.1.apk)
 
 На странице выпуска выберите файл в разделе **Assets**. Распакуйте архив и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; APK установите на планшет Android 8.0+. Нужны доступная PostgreSQL и системный WebView: Edge WebView2 на Windows, GTK/WebKitGTK на Linux, Android System WebView на Android. [Linux: запуск](docs/linux.md) · [Android: установка и сборка](docs/android.md). Пределы проверок указаны в отчёте версии; кросс-сборка не заменяет проверку нативных диалогов на реальном устройстве.
 
 [Руководство пользователя с иллюстрациями](https://github.com/yomezza/dbcatalog/wiki)
+
+## Новое в 0.13.1
+
+- Вариант Android APK для проверки совместимости установщика: подписи v1/v2, стандартные записи `META-INF/CERT.RSA` и `CERT.SF`.
+- Сертификат прежний, versionCode увеличен; обновление сохраняет данные приложения. Схема PostgreSQL не меняется.
+- Установщик Huawei MatePad 12 X / HarmonyOS 4.3.0.146 отклонил 0.13.0 с сообщением об отсутствии сертификатов. Подписи 0.13.0 проходят стандартную проверку; причина на Huawei пока не установлена, результат 0.13.1 на планшете требует подтверждения.
+- [Проверки выпуска](docs/validation-0.13.1.md).
 
 ## Новое в 0.13.0
 

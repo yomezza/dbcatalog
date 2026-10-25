@@ -61,7 +61,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Old installer failed' }
           & $iscc packaging/inno_setup/catalogdb.iss
           if ($LASTEXITCODE -ne 0) { throw 'New installer failed' }
-          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.13.0.exe -ExpectedExe build/bin/CatalogDB.exe
+          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.13.1.exe -ExpectedExe build/bin/CatalogDB.exe
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -72,7 +72,7 @@ jobs:
           name: CatalogDB-windows-x64
           path: |
             build/bin/CatalogDB.exe
-            build/bin/CatalogDB_Setup_0.13.0.exe
+            build/bin/CatalogDB_Setup_0.13.1.exe
 
   linux:
     runs-on: ubuntu-24.04
@@ -163,6 +163,14 @@ jobs:
           export CATALOGDB_ANDROID_KEY_PASS_FILE="$signing_dir/password"
           bash packaging/build-android.sh
           CATALOGDB_ANDROID_SMOKE_PREPARE_ONLY=1 bash packaging/android-native-smoke.sh android_smoke_ci create
+          # Re-sign the immutable previous APK with this job's disposable key.
+          # This tests an actual v3 -> v2 update without exposing release keys.
+          install -m 600 "$signing_dir/password" "$signing_dir/key-password"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$signing_dir/test-only.p12" --ks-key-alias catalogdb-ci \
+            --ks-pass "file:$signing_dir/password" --key-pass "file:$signing_dir/key-password" \
+            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+            --out build/android/previous-ci-only.apk downloads/CatalogDB-android-0.13.0.apk
       - name: Enable KVM for native Android verification
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -178,12 +186,13 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect -camera-back none -camera-front none
           script: |
-            adb install --no-incremental -r build/bin/CatalogDB-android-*.apk
+            adb install --no-incremental -r build/android/previous-ci-only.apk
             adb install --no-incremental -r build/android/catalogdb-native-smoke.apk
             adb shell am instrument -w -e schema android_smoke_ci -e phase create ru.dbcatalog.smoke/ru.dbcatalog.smoke.NativeSmoke > build/android/native-create.log
             cat build/android/native-create.log
             if ! grep -q '^PASS: Android' build/android/native-create.log; then echo '::error title=Android native create::'"$(tail -c 1000 build/android/native-create.log | tr '\n' ' ')"; exit 1; fi
             adb shell am force-stop ru.dbcatalog.app
+            adb install --no-incremental -r build/bin/CatalogDB-android-*.apk
             adb shell am instrument -w -e schema android_smoke_ci -e phase resume ru.dbcatalog.smoke/ru.dbcatalog.smoke.NativeSmoke > build/android/native-resume.log
             cat build/android/native-resume.log
             if ! grep -q '^PASS: Android' build/android/native-resume.log; then echo '::error title=Android native resume::'"$(tail -c 1000 build/android/native-resume.log | tr '\n' ' ')"; exit 1; fi
