@@ -121,11 +121,6 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: android-actions/setup-android@v3
       - name: Install pinned Android tools
         shell: bash
         run: |
@@ -133,6 +128,13 @@ jobs:
           log="$RUNNER_TEMP/catalogdb-android-tools.log"
           trap 'status=$?; if (( status != 0 )); then echo "::error title=Android tool installation::$(tail -c 4000 "$log" | tr "\r\n" "  ")"; fi' EXIT
           exec > >(tee "$log") 2>&1
+          # Ubuntu's hosted image already includes JDK 21 and the Android SDK.
+          export JAVA_HOME="${JAVA_HOME_21_X64:?Hosted JDK 21 is required}"
+          export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          java -version
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
           go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20261011034528-197770444867
           gomobile init
