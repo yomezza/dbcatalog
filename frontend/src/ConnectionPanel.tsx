@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import type { Connection } from "./api";
 import { Field } from "./components";
+import { isAndroid, pickRootCertificate } from "./android";
 interface Props {
   connection: Connection;
   password: string;
@@ -30,6 +31,25 @@ export function ConnectionPanel({
   setRemember,
   onSubmit,
 }: Props) {
+  const android = isAndroid();
+  const [pickingCertificate, setPickingCertificate] = useState(false);
+  const [certificateError, setCertificateError] = useState("");
+  async function chooseCertificate() {
+    setCertificateError("");
+    setPickingCertificate(true);
+    try {
+      const path = await pickRootCertificate();
+      if (path) updateConnection("sslRootCert", path);
+    } catch (error) {
+      setCertificateError(
+        error instanceof Error
+          ? error.message
+          : "Не удалось выбрать сертификат",
+      );
+    } finally {
+      setPickingCertificate(false);
+    }
+  }
   return (
     <section className="setup-card">
       <div className="eyebrow">НАСТРОЙКА РАБОЧЕГО МЕСТА</div>
@@ -111,11 +131,39 @@ export function ConnectionPanel({
             <Field label="Корневой сертификат (путь)">
               <input
                 value={connection.sslRootCert}
+                readOnly={android}
                 onChange={(e) =>
                   updateConnection("sslRootCert", e.target.value)
                 }
                 placeholder="При необходимости"
               />
+              {android && (
+                <div className="certificate-actions">
+                  <button
+                    type="button"
+                    disabled={busy || pickingCertificate}
+                    onClick={() => void chooseCertificate()}
+                  >
+                    {pickingCertificate
+                      ? "Выбор сертификата…"
+                      : "Выбрать сертификат…"}
+                  </button>
+                  {connection.sslRootCert && (
+                    <button
+                      type="button"
+                      disabled={busy || pickingCertificate}
+                      onClick={() => updateConnection("sslRootCert", "")}
+                    >
+                      Сбросить
+                    </button>
+                  )}
+                </div>
+              )}
+              {certificateError && (
+                <small role="alert" className="certificate-error">
+                  {certificateError}
+                </small>
+              )}
             </Field>
           </div>
           {hasPassword && (

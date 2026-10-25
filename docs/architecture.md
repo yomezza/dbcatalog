@@ -12,7 +12,8 @@ live.go держит отдельное соединение LISTEN в суще�
 
 ## Границы модулей
 
-- app.go и desktop*.go: тонкий Wails bridge, нативные диалоги/клиенты Windows.
+- app.go и desktop*.go: тонкий Wails bridge, нативные диалоги/клиенты Windows/Linux.
+- mobile/client.go и android/src: Android WebView, асинхронный bridge с явным списком Go-операций, Keystore, SAF и внешние клиенты. Тот же internal/application, без HTTP-сервера.
 - internal/application: сценарии приложения, авторизация, транзакции, каталог, импорт, история, архив удалений.
 - internal/database: PostgreSQL, встроенные миграции и их контрольные суммы.
 - internal/config, security, spreadsheet, downloads: настройки, пароли, чтение/запись Excel и локальные файлы.

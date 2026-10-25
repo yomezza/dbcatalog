@@ -151,9 +151,12 @@ export function Sidebar({
 }) {
   const [collapsed, setCollapsed] = useState(() => {
     try {
-      return localStorage.getItem("catalogdb.sidebar.collapsed") === "true";
+      const saved = localStorage.getItem("catalogdb.sidebar.collapsed");
+      return saved === null
+        ? document.documentElement.dataset.platform === "android"
+        : saved === "true";
     } catch {
-      return false;
+      return document.documentElement.dataset.platform === "android";
     }
   });
   useEffect(() => {

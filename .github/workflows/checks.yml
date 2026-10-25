@@ -23,6 +23,7 @@ jobs:
           go-version: '1.27.3'
       - run: go test -race ./...
       - run: go vet ./...
+      - run: python3 -m unittest discover -s packaging -p test_publish_releases.py
   windows:
     runs-on: windows-latest
     steps:
@@ -60,7 +61,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Old installer failed' }
           & $iscc packaging/inno_setup/catalogdb.iss
           if ($LASTEXITCODE -ne 0) { throw 'New installer failed' }
-          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.12.0.exe -ExpectedExe build/bin/CatalogDB.exe
+          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.13.0.exe -ExpectedExe build/bin/CatalogDB.exe
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -71,7 +72,7 @@ jobs:
           name: CatalogDB-windows-x64
           path: |
             build/bin/CatalogDB.exe
-            build/bin/CatalogDB_Setup_0.12.0.exe
+            build/bin/CatalogDB_Setup_0.13.0.exe
 
   linux:
     runs-on: ubuntu-24.04
@@ -97,3 +98,53 @@ jobs:
           path: |
             build/bin/CatalogDB-linux-x64-*.tar.gz*
             build/linux-launch.log
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned Android tools
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+          go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20261011034528-197770444867
+          gomobile init
+          # init installs gobind@latest; restore the version pinned by this app.
+          go install golang.org/x/mobile/cmd/gobind@v0.0.0-20261011034528-197770444867
+      - run: npm --prefix frontend ci
+      - run: npm --prefix frontend run build
+      - name: Build APK with disposable CI signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          signing_dir=$(mktemp -d "$RUNNER_TEMP/catalogdb-signing.XXXXXX")
+          trap 'rm -rf "$signing_dir"' EXIT
+          openssl rand -hex 32 > "$signing_dir/password"
+          keytool -genkeypair -noprompt -storetype PKCS12 \
+            -keystore "$signing_dir/test-only.p12" -alias catalogdb-ci \
+            -storepass:file "$signing_dir/password" -keypass:file "$signing_dir/password" \
+            -keyalg RSA -keysize 3072 -validity 30 -dname 'CN=CatalogDB CI test only'
+          export CATALOGDB_ANDROID_KEYSTORE="$signing_dir/test-only.p12"
+          export CATALOGDB_ANDROID_KEY_ALIAS=catalogdb-ci
+          export CATALOGDB_ANDROID_STORE_PASS_FILE="$signing_dir/password"
+          export CATALOGDB_ANDROID_KEY_PASS_FILE="$signing_dir/password"
+          bash packaging/build-android.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CatalogDB-android-CI-test-only-not-release
+          path: |
+            build/bin/CatalogDB-android-*.apk
+            build/bin/CatalogDB-android-*.apk.sha256

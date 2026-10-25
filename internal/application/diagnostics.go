@@ -28,7 +28,7 @@ type observedCredentials struct {
 
 func (s observedCredentials) record(err error) {
 	state := "available"
-	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
+	if err != nil && !errors.Is(err, keyring.ErrNotFound) && !errors.Is(err, os.ErrNotExist) {
 		state = "error"
 	}
 	s.health.Lock()
@@ -86,6 +86,8 @@ func (s *Service) GetDiagnostics() Diagnostics {
 		d.CredentialBackend = "Windows Credential Manager"
 	} else if runtime.GOOS == "linux" {
 		d.CredentialBackend = "Secret Service (D-Bus)"
+	} else if runtime.GOOS == "android" {
+		d.CredentialBackend = "Android Keystore"
 	}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, dep := range info.Deps {

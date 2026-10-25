@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="ru.dbcatalog.smoke">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
+    <instrumentation android:name="ru.dbcatalog.smoke.NativeSmoke" android:targetPackage="ru.dbcatalog.app" />
+    <application android:label="CatalogDB native smoke tests" android:allowBackup="false" />
+</manifest>

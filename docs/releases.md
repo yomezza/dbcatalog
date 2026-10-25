@@ -1,11 +1,12 @@
 # Выпуски CatalogDB
 
-Версии 0.1.0–0.12.0: https://github.com/yomezza/dbcatalog/releases.
+Версии 0.1.0–0.13.0: https://github.com/yomezza/dbcatalog/releases.
 
-Выпуски помечены как предварительные. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0.
+Исторические выпуски помечены как предварительные; 0.13.0 публикуется обычным релизом с меткой Latest. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0, Android — в 0.13.0.
 
 | Версия | Изменения | Платформы |
 |---|---|---|
+| [0.13.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.13.0) | Android-планшеты, общий Go backend, Keystore и системные документы | Windows x64, Linux x64, Android ARMv7/ARM64/x86_64 |
 | [0.12.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.12.0) | Сворачиваемая рабочая область и единые иконки навигации | Windows x64, Linux x64 |
 | [0.11.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.11.0) | Диагностика приложения и безопасный отчёт JSON | Windows x64, Linux x64 |
 | [0.10.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.10.0) | Windows и Linux | Windows x64, Linux x64 |
@@ -28,7 +29,7 @@
 1. Зафиксируйте сборки в downloads вместе с SHA-256.
 2. Добавьте выпуск в packaging/releases/manifest.json с полным SHA коммита, содержащего эти файлы, описанием и списком вложений.
 3. Выполните `python3 packaging/publish-releases.py`: проверяются контрольные суммы и точное соответствие файлов историческому коммиту.
-4. Отправьте изменения манифеста в catalogdb-go или master. Workflow Publish CatalogDB releases опубликует выпуски через GITHUB_TOKEN с правом contents:write.
+4. Отправьте изменения манифеста в catalogdb-go или master. Workflow Publish CatalogDB releases опубликует выпуски через CATALOGDB_RELEASE_TOKEN (fallback: GITHUB_TOKEN) с правом contents:write.
 
 Повторный запуск не перезаписывает файлы с отличающимся содержимым и не перемещает теги. Новый выпуск создаётся черновиком и публикуется после загрузки всех вложений. Для 0.9.0 и 0.10.0 дополнительно опубликован SQL-переход 009 → 016. Самостоятельный запуск с --publish требует авторизованного GitHub CLI.
 

@@ -1,20 +1,29 @@
 # CatalogDB
 
-Настольный каталог серверов → экземпляров СУБД → баз данных; Oracle SID размещаются непосредственно на сервере. Go + Wails v2, React/TypeScript, центральная PostgreSQL. Интерфейс на русском языке.
+Каталог серверов → экземпляров СУБД → баз данных; Oracle SID размещаются непосредственно на сервере. Go + Wails v2 (Windows/Linux), Android WebView, React/TypeScript, центральная PostgreSQL. Интерфейс на русском языке.
 
 ## Продолжить разработку с другим ассистентом
 
 Начните с [AGENTS.md](AGENTS.md) и [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md): там текущее состояние, требования пользователя, принятые решения и идеи, которые пока только обсуждались. Команды и порядок выпуска — в [DEVELOPMENT.md](docs/DEVELOPMENT.md), ограничения и незавершённые вопросы — в [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
-## Скачать предварительную сборку
+## Скачать приложение
 
 [Все версии на GitHub Releases](https://github.com/yomezza/dbcatalog/releases) · [История выпусков](docs/releases.md)
 
-[CatalogDB 0.12.0 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.12.0/CatalogDB-windows-x64-0.12.0.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.12.0/CatalogDB-linux-x64-0.12.0.tar.gz) · [Linux: запуск и сборка](docs/linux.md)
+[CatalogDB 0.13.0 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.0/CatalogDB-windows-x64-0.13.0.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.0/CatalogDB-linux-x64-0.13.0.tar.gz) · [Android APK](https://github.com/yomezza/dbcatalog/releases/download/v0.13.0/CatalogDB-android-0.13.0.apk)
 
-На странице выпуска выберите нужный архив в разделе **Assets**. Распакуйте и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; для Windows нужен Microsoft Edge WebView2 Runtime, для Linux — GTK/WebKitGTK; нужна доступная PostgreSQL. Это предварительная сборка, работа на Windows пока не проверена. Архив соответствует исходникам этой версии; после изменения кода его нужно пересобирать. Последующие сборки предусмотрены как артефакты GitHub Actions.
+На странице выпуска выберите файл в разделе **Assets**. Распакуйте архив и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; APK установите на планшет Android 8.0+. Нужны доступная PostgreSQL и системный WebView: Edge WebView2 на Windows, GTK/WebKitGTK на Linux, Android System WebView на Android. [Linux: запуск](docs/linux.md) · [Android: установка и сборка](docs/android.md). Пределы проверок указаны в отчёте версии; кросс-сборка не заменяет проверку нативных диалогов на реальном устройстве.
 
 [Руководство пользователя с иллюстрациями](https://github.com/yomezza/dbcatalog/wiki)
+
+## Новое в 0.13.0
+
+- APK для Android-планшетов: общий Go backend, React-интерфейс и прямое подключение к PostgreSQL без отдельного сервера.
+- Адаптация под касания, альбомную/книжную ориентацию, меню объектов кнопкой ⋮; рабочая область первоначально свёрнута.
+- Android Keystore для секретов, системный выбор/сохранение файлов и сертификата, передача экспорта другим приложениям, внешние RDP/SSH-клиенты.
+- Общие поиск, миграции, права и LISTEN/NOTIFY; схема БД остаётся 016. Android CI проверяет сборку с отдельным тестовым ключом.
+- Новые обычные релизы публикуются с меткой Latest; исторические labels сохраняются.
+- [Инструкция Android](docs/android.md) · [Проверки выпуска](docs/validation-0.13.0.md).
 
 ## Новое в 0.12.0
 

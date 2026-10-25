@@ -39,10 +39,27 @@ def api(path, method='GET', payload=None):
     return json.loads(parts[1] if len(parts) == 2 else response)
 
 
+def latest_setting(release):
+    """An absent setting preserves an existing release's GitHub label.
+
+    New ordinary releases can request make_latest: "true" (Latest) or "false"
+    (None). Historical entries need no rewrite when this policy is introduced.
+    """
+    if 'make_latest' not in release:
+        return None
+    value = release['make_latest']
+    if value not in ('true', 'false'):
+        raise ValueError('make_latest must be the string "true" or "false"')
+    if value == 'true' and release['prerelease']:
+        raise ValueError('A prerelease cannot be marked Latest')
+    return value
+
+
 def validate(manifest):
     versions = set()
     assets_count = 0
     for release in manifest['releases']:
+        latest_setting(release)
         version, commit = release['version'], release['commit']
         if not re.fullmatch(r'\d+\.\d+\.\d+', version) or version in versions:
             raise ValueError(f'Invalid/duplicate version: {version}')
@@ -75,6 +92,9 @@ def publish(manifest):
     repo = manifest['repository']
     if os.environ.get('GITHUB_REPOSITORY', repo) != repo:
         raise ValueError('Repository does not match the release manifest')
+    # Reject an invalid policy before modifying even the first historical entry.
+    for release in manifest['releases']:
+        latest_setting(release)
     existing = json.loads(run('gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases'))
     by_tag = {r['tag_name']: r for page in existing for r in page}
     for release in manifest['releases']:
@@ -111,10 +131,18 @@ def publish(manifest):
                     raise ValueError(f'Refusing to replace different asset: {tag}/{path.name}')
             else:
                 run('gh', 'release', 'upload', tag, str(path), '--repo', repo)
-        api(f'repos/{repo}/releases/{current["id"]}', 'PATCH', {
+        metadata = {
             'name': release['title'], 'body': release['body'],
-            'draft': False, 'prerelease': release['prerelease'], 'make_latest': 'false',
-        })
+            'draft': False,
+        }
+        requested_latest = latest_setting(release)
+        # Old published entries have no new label policy. Preserve their actual
+        # prerelease/Latest state, including a label changed manually in GitHub.
+        if requested_latest is not None or current['draft']:
+            metadata['prerelease'] = release['prerelease']
+        if requested_latest is not None:
+            metadata['make_latest'] = requested_latest
+        api(f'repos/{repo}/releases/{current["id"]}', 'PATCH', metadata)
         published = api(f'repos/{repo}/releases/{current["id"]}')
         if published['draft']:
             raise ValueError(f'Release is still a draft: {tag}')

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type DownloadEntry } from "./api";
 import { matchesSearch } from "./search";
+import { isAndroid } from "./android";
 export function formatSize(n: number) {
   return n < 1024
     ? `${n} Б`
@@ -110,7 +111,7 @@ export function DownloadsPanel({
                       disabled={busy || !e.available}
                       onClick={() => void action(e, "show")}
                     >
-                      В папке
+                      {isAndroid() ? "Поделиться" : "В папке"}
                     </button>
                     <button
                       disabled={busy || !e.available}

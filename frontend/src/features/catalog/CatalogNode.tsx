@@ -1,4 +1,5 @@
 import type { CatalogObject } from "../../api";
+import { isAndroid } from "../../android";
 interface Props {
   object: CatalogObject;
   selected: boolean;
@@ -63,6 +64,21 @@ export function CatalogNode({
           </small>
         </span>
       </button>
+      {isAndroid() && (
+        <button
+          type="button"
+          className="touch-object-actions"
+          aria-label={`Действия: ${o.name}`}
+          aria-haspopup="menu"
+          disabled={busy}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            onContext(o, rect.right, rect.bottom);
+          }}
+        >
+          ⋮
+        </button>
+      )}
     </>
   );
 }

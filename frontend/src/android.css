@@ -1,0 +1,241 @@
+/* Only the native Android host sets this flag. Desktop styles stay unchanged. */
+html[data-platform="android"] {
+  scrollbar-gutter: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+html[data-platform="android"] .titlebar {
+  height: 44px;
+  --wails-draggable: no-drag;
+}
+html[data-platform="android"] .window-controls {
+  display: none;
+}
+html[data-platform="android"] .shell {
+  height: calc(100vh - 44px);
+  height: calc(100dvh - 44px);
+}
+html[data-platform="android"] .shell > .sidebar {
+  top: 0;
+  padding-top: 18px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+html[data-platform="android"] .shell > main {
+  padding: 22px;
+  padding-bottom: max(22px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
+html[data-platform="android"] button,
+html[data-platform="android"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-platform="android"] select {
+  min-height: 44px;
+}
+html[data-platform="android"] input,
+html[data-platform="android"] select,
+html[data-platform="android"] textarea {
+  font-size: 16px;
+  max-width: 100%;
+}
+html[data-platform="android"] .sidebar-toggle {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+}
+html[data-platform="android"] .workspace-heading {
+  margin-bottom: 14px;
+}
+html[data-platform="android"] .workspace-label {
+  letter-spacing: 0.8px;
+}
+html[data-platform="android"] .sidebar nav button {
+  min-height: 48px;
+}
+html[data-platform="android"] .sidebar .nav-counter {
+  font-size: 11px;
+}
+html[data-platform="android"] .catalog-layout {
+  grid-template-columns: minmax(280px, 1fr) minmax(300px, 1fr);
+  gap: 16px;
+}
+html[data-platform="android"] .tree-tools {
+  padding: 14px;
+}
+html[data-platform="android"] .tree-controls {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html[data-platform="android"] .tree-toggle-slot {
+  width: 40px;
+  flex-basis: 40px;
+}
+html[data-platform="android"] .tree-toggle {
+  width: 40px;
+  min-width: 40px;
+  padding: 6px;
+}
+html[data-platform="android"] .virtual-tree {
+  height: 480px;
+  max-height: 58vh;
+  max-height: 58dvh;
+}
+html[data-platform="android"] .tree-check {
+  width: 22px;
+  height: 22px;
+}
+html[data-platform="android"] .touch-object-actions {
+  flex: 0 0 44px;
+  min-width: 44px;
+  padding: 4px;
+  background: transparent;
+  border-color: transparent;
+  font-size: 28px;
+  line-height: 1;
+  color: #52788b;
+}
+html[data-platform="android"] .touch-object-actions:active {
+  background: #e8f3f7;
+}
+html[data-platform="android"] .modal-backdrop {
+  inset: 0;
+  padding: 20px;
+}
+html[data-platform="android"] .modal {
+  width: min(100%, 1000px);
+  max-width: 100%;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  padding: 22px;
+}
+html[data-platform="android"] .modal-heading > button {
+  min-width: 44px;
+}
+html[data-platform="android"] .document-dialog > .modal-heading {
+  top: -22px;
+}
+html[data-platform="android"] .context-menu {
+  top: auto !important;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+}
+html[data-platform="android"] .context-menu button {
+  min-height: 44px;
+}
+html[data-platform="android"] .touch-menu-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 10px;
+  border-bottom: 1px solid #e1e9ef;
+}
+html[data-platform="android"] .touch-menu-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #234e62;
+}
+html[data-platform="android"] .touch-menu-heading button {
+  flex: 0 0 44px;
+  width: 44px;
+  font-size: 24px;
+  text-align: center;
+}
+html[data-platform="android"] .certificate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html[data-platform="android"] .certificate-error {
+  color: #b52e39;
+}
+html[data-platform="android"] .table-panel,
+html[data-platform="android"] .import-table,
+html[data-platform="android"] .snapshot-table,
+html[data-platform="android"] .version-list {
+  max-width: 100%;
+  overflow-x: auto;
+}
+html[data-platform="android"] .page-heading,
+html[data-platform="android"] .actions,
+html[data-platform="android"] .detail-actions {
+  flex-wrap: wrap;
+}
+html[data-platform="android"] .selection-toolbar > span {
+  flex-basis: 100%;
+}
+
+@media (max-width: 1000px) {
+  html[data-platform="android"] .catalog-layout,
+  html[data-platform="android"] .form-grid,
+  html[data-platform="android"] .import-editor-grid,
+  html[data-platform="android"] .policy-import-grid,
+  html[data-platform="android"] .diagnostics-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-platform="android"] .virtual-tree {
+    height: 390px;
+    max-height: 45vh;
+    max-height: 45dvh;
+  }
+  html[data-platform="android"] .context-menu {
+    left: 12px !important;
+    right: 12px;
+    top: auto !important;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: auto;
+    max-height: 75vh;
+    max-height: 75dvh;
+    border-radius: 16px;
+    padding: 8px;
+  }
+  html[data-platform="android"] .context-menu button {
+    font-size: 15px;
+  }
+  html[data-platform="android"] .modal-backdrop {
+    padding: 12px;
+  }
+  html[data-platform="android"] .modal {
+    padding: 18px;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+  html[data-platform="android"] .document-dialog > .modal-heading {
+    top: -18px;
+  }
+  html[data-platform="android"] .settings-fields {
+    grid-template-columns: minmax(100px, 0.7fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  html[data-platform="android"] .title-muted {
+    display: none;
+  }
+  html[data-platform="android"] .shell > main {
+    padding: 14px;
+  }
+  html[data-platform="android"] .stats {
+    gap: 6px;
+  }
+  html[data-platform="android"] .stat {
+    padding: 12px 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  html[data-platform="android"] .stat span {
+    font-size: 10px;
+    overflow-wrap: anywhere;
+  }
+  html[data-platform="android"] h1 {
+    font-size: 23px;
+  }
+  html[data-platform="android"] .card-fields,
+  html[data-platform="android"] .audit-filter-grid,
+  html[data-platform="android"] .settings-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-platform="android"] .pagination {
+    flex-wrap: wrap;
+  }
+}

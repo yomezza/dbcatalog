@@ -21,3 +21,12 @@ frontend/package.json.md5
 
 # Local graphical smoke logs
 build/linux-launch.log
+
+# Android build output and private signing material
+build/android/
+android/.gradle/
+android/local.properties
+*.keystore
+*.jks
+*.p12
+*.pfx

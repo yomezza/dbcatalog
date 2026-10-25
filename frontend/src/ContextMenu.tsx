@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { CatalogObject } from "./api";
+import { isAndroid } from "./android";
 interface Props {
   object: CatalogObject;
   x: number;
@@ -71,6 +72,19 @@ export function ContextMenu(p: Props) {
         }
       }}
     >
+      {isAndroid() && (
+        <div className="touch-menu-heading">
+          <strong>{p.object.name}</strong>
+          <button
+            type="button"
+            role="menuitem"
+            aria-label="Закрыть меню"
+            onClick={p.onClose}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <button role="menuitem" onClick={action(p.onOpen)}>
         Открыть карточку
       </button>
