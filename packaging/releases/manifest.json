@@ -164,6 +164,22 @@
         "downloads/CatalogDB-linux-x64-0.12.0.tar.gz",
         "downloads/CatalogDB-linux-x64-0.12.0.tar.gz.sha256"
       ]
+    },
+    {
+      "version": "0.13.0",
+      "commit": "f92f90a9fd8303fc66d53625c5b9b94bb2189d91",
+      "title": "CatalogDB 0.13.0 — Android для планшетов",
+      "prerelease": false,
+      "make_latest": "true",
+      "body": "Android-планшеты присоединились к Windows и Linux: общий интерфейс React, прикладная логика Go и центральная PostgreSQL.\n\n- APK для Android 8.0+, ARMv7 / ARM64 / x86_64; совместимое ELF/ZIP выравнивание 16 КиБ.\n- Сенсорное управление, меню объектов кнопкой ⋮, адаптация под альбомную/книжную ориентацию и компактная рабочая область.\n- Android Keystore для пароля подключения и токена входа, сохранение входа на выбранный срок.\n- Системные документы для Excel, вложений, сохранения экспорта и выбора сертификата; «Поделиться» передаёт выбранный файл.\n- Внешние RDP/SSH-клиенты, общий поиск по всему каталогу, роли и LISTEN/NOTIFY.\n- PostgreSQL-схема остаётся 016; новых миграций нет.\n\n### Скачать\n\nAndroid: установите CatalogDB-android-0.13.0.apk, нужен актуальный Android System WebView и доступ к PostgreSQL по сети/VPN.\nWindows x64: распакуйте ZIP, запустите CatalogDB.exe; нужен Edge WebView2.\nLinux x64: распакуйте TAR.GZ, запустите ./CatalogDB; нужны glibc 2.41+, GTK 3, WebKitGTK 4.1.\nКонтрольные суммы опубликованы в файлах .sha256.\n\n### Проверено\n\nGo с PostgreSQL 17 и race detector, vet, 14 Vitest и 50 браузерных сценариев. Все четыре CI-задачи успешны. На настоящем Android-эмуляторе с KVM проверены WebView → Java → Go → PostgreSQL, миграции, запись, live event, XLSX и Keystore/восстановление входа после остановки процесса. Windows CI проверил установщик, обновление с 0.8.1 и создание окна; Linux — нативный запуск.\n\nФизический планшет, рабочие VPN/TLS и сторонние RDP/SSH/обработчики документов требуют отдельного прогона. Постоянной фоновой службы и системных Android push-уведомлений нет.\n\n[Android: инструкция](https://github.com/yomezza/dbcatalog/wiki/Android) · [Проверки](https://github.com/yomezza/dbcatalog/blob/v0.13.0/docs/validation-0.13.0.md) · [Успешный CI](https://github.com/yomezza/dbcatalog/actions/runs/40208820170)\n\nИсходники и файлы: `f92f90a9fd8303fc66d53625c5b9b94bb2189d91`.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.13.0.zip",
+        "downloads/CatalogDB-windows-x64-0.13.0.zip.sha256",
+        "downloads/CatalogDB-linux-x64-0.13.0.tar.gz",
+        "downloads/CatalogDB-linux-x64-0.13.0.tar.gz.sha256",
+        "downloads/CatalogDB-android-0.13.0.apk",
+        "downloads/CatalogDB-android-0.13.0.apk.sha256"
+      ]
     }
   ]
 }
