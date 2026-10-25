@@ -45,12 +45,12 @@ PROJECT_CONTEXT.md, docs/DEVELOPMENT.md и docs/KNOWN_ISSUES.md.
 | Версия приложения | `0.13.1` |
 | Версия схемы | `016`, миграции `001`–`016` |
 | Последнее функциональное изменение | Android-планшеты, общий Go service и React UI |
-| Коммит архивов и тег `v0.13.1` | Полный SHA в `packaging/releases/manifest.json` |
+| Коммит архивов и тег `v0.13.1` | `9e386e3476926e7b15b2962c7ebcda2aa2e915d5` |
 | Release | <https://github.com/yomezza/dbcatalog/releases/tag/v0.13.1> |
 | Wiki | <https://github.com/yomezza/dbcatalog/wiki> |
 | Отдельный Git Wiki | `https://github.com/yomezza/dbcatalog.wiki.git` |
 
-0.12.0 остаётся предыдущим настольным выпуском. Исторические теги и архивы не заменяются; 0.13.0 добавляет Android и сохраняет схему 016.
+0.12.0 — последний выпуск до Android; 0.13.0 добавил Android, 0.13.1 меняет профиль подписи. Исторические теги и архивы не заменяются; схема остаётся 016.
 
 ## Архитектура и карта исходников
 

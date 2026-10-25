@@ -180,6 +180,22 @@
         "downloads/CatalogDB-android-0.13.0.apk",
         "downloads/CatalogDB-android-0.13.0.apk.sha256"
       ]
+    },
+    {
+      "version": "0.13.1",
+      "commit": "9e386e3476926e7b15b2962c7ebcda2aa2e915d5",
+      "title": "CatalogDB 0.13.1 — Совместимость подписи APK",
+      "prerelease": false,
+      "make_latest": "true",
+      "body": "Новый профиль подписи Android APK для проверки совместимости установщиков.\n\n- Подписи v1/v2, стандартные файлы META-INF/CERT.RSA и CERT.SF; v1 дополнительно проверяется отдельно.\n- Прежний сертификат сохранён; versionCode увеличен до 14.\n- Обновление 0.13.0 → 0.13.1 проверено на Android 15/KVM: данные, Keystore и сохранённый вход сохранились.\n- Windows x64 и Linux x64 пересобраны из той же версии. Прикладная логика и схема PostgreSQL 016 не изменяются.\n\n### Статус Huawei\n\nУстановщик MatePad 12 X / HarmonyOS 4.3.0.146 отклонил 0.13.0 с сообщением об отсутствии сертификатов. Стандартная проверка подписи исходного APK успешна. 0.13.1 — вариант для проверки совместимости; причина отказа и результат установки на самом Huawei пока не подтверждены. Отдельный сертификат Huawei в APK не добавлялся, signing key не менялся.\n\n### Проверено\n\nВсе четыре CI-задачи успешны: backend, Windows, Linux, Android. Проверены Go/PostgreSQL с race detector, vet, мобильный bridge, 14 unit-тестов UI, TypeScript/Vite, APK/ELF/ZIP alignment, v1/v2, нативное обновление с предыдущего APK. Windows CI прошёл установку/обновление и создание окна; Linux — нативный запуск.\n\nAndroid: скачайте APK, нужен Android 8+ и актуальный WebView.\nWindows: ZIP и Edge WebView2.\nLinux: TAR.GZ, glibc 2.41+, GTK 3 и WebKitGTK 4.1.\nФайлы .sha256 содержат контрольные суммы.\n\n[Проверки](https://github.com/yomezza/dbcatalog/blob/v0.13.1/docs/validation-0.13.1.md) · [Успешный CI](https://github.com/yomezza/dbcatalog/actions/runs/40211915468) · [Android: инструкция](https://github.com/yomezza/dbcatalog/wiki/Android)\n\nИсходники и файлы: `9e386e3476926e7b15b2962c7ebcda2aa2e915d5`.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.13.1.zip",
+        "downloads/CatalogDB-windows-x64-0.13.1.zip.sha256",
+        "downloads/CatalogDB-linux-x64-0.13.1.tar.gz",
+        "downloads/CatalogDB-linux-x64-0.13.1.tar.gz.sha256",
+        "downloads/CatalogDB-android-0.13.1.apk",
+        "downloads/CatalogDB-android-0.13.1.apk.sha256"
+      ]
     }
   ]
 }
