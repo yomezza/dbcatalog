@@ -103,7 +103,7 @@ wails build -platform windows/amd64 -s -skipbindings
 
 На Windows [packaging/build.ps1](../packaging/build.ps1) дополнительно запускает проверки, получает официальный WebView2 bootstrapper с проверкой подписи Microsoft и собирает Inno Setup при доступном `ISCC.exe`. Установщик для закрытой сети задаётся через `CATALOGDB_WEBVIEW2_INSTALLER` и также проверяется.
 
-Кросс-сборка не подтверждает GUI, установщик, Credential Manager, нативные диалоги и интерактивную авторизацию RDP/SSH. Для этого есть [план Windows-проверки](windows-release-check.md), `packaging/windows-smoke.ps1` и Windows job CI. Последний облачный прогон 0.12.0 не подтверждал новый интерактивный Windows GUI.
+Кросс-сборка не подтверждает GUI, установщик, Credential Manager, нативные диалоги и интерактивную авторизацию RDP/SSH. Для этого есть [план Windows-проверки](windows-release-check.md), `packaging/windows-smoke.ps1` и Windows job CI. CI 0.13.0 проверил silent-установку/обновление и появление нативного окна; интерактивное отображение и диалоги требуют отдельной проверки.
 
 ## Сборка Linux
 

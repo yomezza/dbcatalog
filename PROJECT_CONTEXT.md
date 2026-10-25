@@ -161,7 +161,7 @@ PROJECT_CONTEXT.md, docs/DEVELOPMENT.md и docs/KNOWN_ISSUES.md.
 - На узком экране каталог/карточка идут последовательно; кнопка ⋮ заменяет необходимость ПКМ, боковая панель первоначально компактна. Windows/Linux стили изолированы от Android CSS.
 - Постоянная фоновая служба и системные push-уведомления Android не внедрены. Возврат приложения вызывает resync. RDP/SSH требуют внешнего клиента.
 - Ключ подписи находится вне Git в закрытой папке текущей среды. Для будущих обновлений обязателен тот же signing key и растущий versionCode; владелец должен обеспечить отдельную резервную копию ключа. CI использует одноразовый тестовый сертификат, его APK не заменяет release APK.
-- Нативный smoke — отдельный instrumentation APK (`android/tests`), не часть распространяемого приложения. Только синтетическая compose БД и схема `android_smoke_*`.
+- Нативный smoke — отдельный instrumentation APK (`android/tests`), не часть распространяемого приложения. Обе фазы (включая Keystore после остановки процесса) прошли в GitHub Actions на KVM, Android 15 / Nexus 7: workflow `40208820170`. Только синтетическая compose БД и схема `android_smoke_*`.
 
 ## Политика выпуска
 
@@ -175,6 +175,6 @@ PROJECT_CONTEXT.md, docs/DEVELOPMENT.md и docs/KNOWN_ISSUES.md.
 - [Вложения, перемещения и большие каталоги](docs/documents-movements-large-catalog.md).
 - [Linux](docs/linux.md), [Android](docs/android.md), [Windows-проверки](docs/windows-release-check.md), [выпуски](docs/releases.md).
 - [Проверка 0.13.0](docs/validation-0.13.0.md), [галерея Linux](docs/linux-screenshots.md).
-- [Wiki для новичков](https://github.com/yomezza/dbcatalog/wiki): 17 страниц, 11 скриншотов, 2 учебных XLSX; она хранится отдельно от основного репозитория.
+- [Wiki для новичков](https://github.com/yomezza/dbcatalog/wiki): 18 страниц, 11 скриншотов, 2 учебных XLSX; она хранится отдельно от основного репозитория.
 
 При продолжении проекта сохраняйте этот файл кратким сводным источником, а подробности проверок и новых решений дописывайте в соответствующие документы. Не превращайте контекст в необработанную копию переписки.
