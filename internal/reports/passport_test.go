@@ -28,9 +28,11 @@ func TestPassportEmbedsCyrillicFontsAndPaginatesLongValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	if bin, err := exec.LookPath("pdftotext"); err == nil {
-		raw, err := exec.Command(bin, "-layout", path, "-").Output()
+		// Windows PDF tools may default to a legacy console encoding. Specify
+		// UTF-8 so the same Cyrillic assertions apply on every platform.
+		raw, err := exec.Command(bin, "-enc", "UTF-8", "-layout", path, "-").CombinedOutput()
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("pdftotext: %v: %s", err, raw)
 		}
 		for _, term := range []string{"Документооборот", "Ёжик", "КОНЕЦ-ДЛИННОГО-ТЕКСТА", "КОНЕЦ-ПУТИ", "Обычный текст", "Демонстрационный пользователь", "UTC+05:00"} {
 			if !strings.Contains(string(raw), term) {
