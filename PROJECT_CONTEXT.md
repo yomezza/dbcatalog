@@ -50,7 +50,7 @@ PROJECT_CONTEXT.md, docs/DEVELOPMENT.md и docs/KNOWN_ISSUES.md.
 | Wiki | <https://github.com/yomezza/dbcatalog/wiki> |
 | Отдельный Git Wiki | `https://github.com/yomezza/dbcatalog.wiki.git` |
 
-0.12.0 — последний выпуск до Android; 0.13.0 добавил Android, 0.13.1 меняет профиль подписи. Исторические теги и архивы не заменяются; схема остаётся 016.
+0.12.0 — последний выпуск до Android; 0.13.0 добавил Android, 0.13.1 изменил профиль подписи, 0.14.0 добавил PDF-паспорта. Исторические теги и архивы не заменяются; схема остаётся 016.
 
 ## Архитектура и карта исходников
 
