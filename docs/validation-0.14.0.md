@@ -32,4 +32,14 @@ PDF/A, цифровая подпись, физическая печать и в�
 
 ## Публикация
 
-Архивы Windows/Linux и APK с SHA-256 подготовлены. Статус публичной публикации и проверки скачивания фиксируется после выполнения workflow; сами локальные файлы не означают опубликованный Release.
+[Release v0.14.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.14.0) опубликован как **Latest**, не prerelease. [Workflow 40291939742](https://github.com/yomezza/dbcatalog/actions/runs/40291939742) успешен. Тег указывает на коммит архивов `5372d80d57244509f4500c695dba22382e6cc91d`.
+
+Все шесть публичных вложений скачаны с GitHub; содержимое, размеры и SHA-256 совпали с архивами и sidecar-файлами в репозитории. Перенаправление `/releases/latest` ведёт на v0.14.0.
+
+| Файл | Размер, байт | SHA-256 |
+| --- | ---: | --- |
+| Windows ZIP | 8 084 481 | `1ba961ba79db1ecd97aea2f82a40e8ad7ec4501993a72325a6695e797305dec0` |
+| Linux TAR.GZ | 7 530 268 | `47fb23fdd1372f2a2484a5e3db78f1123609969ba3ef2d726fe9d38c288d6b24` |
+| Android APK | 54 150 102 | `016e166afd46afb8afae7baeddf554432743d467a739197857cf16f3e6dcb302` |
+
+Wiki обновлена отдельно, commit `a75adbd`: [Печать в PDF](https://github.com/yomezza/dbcatalog/wiki/Printing-to-PDF), превью первой страницы и синтетический PDF доступны публично.
