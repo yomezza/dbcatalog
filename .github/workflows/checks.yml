@@ -39,7 +39,17 @@ jobs:
       - run: npm --prefix frontend ci
       - run: npm --prefix frontend test
       - run: npm --prefix frontend run build
-      - run: go test ./...
+      - name: Test Go on Windows
+        shell: pwsh
+        run: |
+          $output = & go test ./... 2>&1
+          $status = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host $_ }
+          if ($status -ne 0) {
+            $detail = ($output | Select-Object -Last 65) -join ' '
+            Write-Host "::error title=Windows Go tests::$detail"
+            exit $status
+          }
       - run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
       - run: wails build -clean -platform windows/amd64
       - name: Install Inno Setup
