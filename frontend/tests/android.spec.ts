@@ -122,6 +122,9 @@ async function host(page: Page, catalog = false) {
                 },
               ];
               break;
+            case "ExportObjectPDF":
+              result = { id: "pdf-1", name: "Паспорт.pdf", category: "PDF-паспорт объекта", size: 1000, sha256: "demo", available: true, createdAt: "2026-10-26T07:00:00Z" };
+              break;
             case "OpenDownload":
             case "ShowDownload":
             case "SaveDownloadAs":
@@ -216,6 +219,18 @@ test("Android bridge starts before React and matches asynchronous responses by u
     }
   });
   expect(error).toBe("Тестовый отказ PostgreSQL");
+});
+
+test("Android object menu creates a PDF and opens the native save action", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await host(page, true);
+  await page.getByRole("button", { name: "Действия: APP-TABLET-01", exact: true }).tap();
+  await page.getByRole("menuitem", { name: "Печать в PDF", exact: true }).tap();
+  await expect.poll(() => page.evaluate(() => window.__androidRequests.filter((r) => ["ExportObjectPDF", "SaveDownloadAs"].includes(r.method)).map((r) => ({ method: r.method, args: r.args })))).toEqual([
+    { method: "ExportObjectPDF", args: ["server", "s1"] },
+    { method: "SaveDownloadAs", args: ["pdf-1"] },
+  ]);
+  await expect(page.locator(".notice[role=status]")).toContainText("PDF-паспорт сохранён");
 });
 
 test("Android live events validate payloads and remove only the unsubscribed listener", async ({

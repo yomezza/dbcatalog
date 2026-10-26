@@ -207,6 +207,36 @@ async function login(page: Page, role = "admin", expand = true) {
       .getByRole("button", { name: "Раскрыть все", exact: true })
       .click();
 }
+test("PDF passport exports the chosen object, keeps cancelled saves and reports failures for viewers", async ({ page }) => {
+  await login(page, "viewer");
+  await page.evaluate(() => {
+    (window as any).__pdfCalls = [];
+    (window as any).__pdfSaves = [];
+    window.go!.main.App.ExportObjectPDF = async (kind, id) => {
+      (window as any).__pdfCalls.push({ kind, id });
+      if ((window as any).__pdfFailure) throw new Error("Объект уже удалён");
+      return { id: "pdf-1", name: "Паспорт.pdf", category: "PDF-паспорт объекта", size: 1000, sha256: "demo", available: true, createdAt: new Date().toISOString() };
+    };
+    window.go!.main.App.SaveDownloadAs = async (id) => {
+      (window as any).__pdfSaves.push(id);
+      return false;
+    };
+  });
+  await page.locator(".tree-node").filter({ hasText: "payroll" }).click();
+  await page.locator(".detail-panel").getByRole("button", { name: "Печать в PDF", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__pdfCalls)).toEqual([{ kind: "database", id: "d1" }]);
+  await expect(page.locator(".notice[role=status]")).toContainText("PDF-паспорт сохранён");
+  await page.locator(".tree-node").filter({ hasText: "host-a" }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Печать в PDF", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).__pdfCalls)).toEqual([{ kind: "database", id: "d1" }, { kind: "server", id: "s1" }]);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.evaluate(() => { (window as any).__pdfFailure = true; });
+  await page.locator(".tree-node").filter({ hasText: "pg-main" }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Печать в PDF", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Объект уже удалён");
+  expect(await page.evaluate(() => (window as any).__pdfSaves)).toEqual(["pdf-1", "pdf-1"]);
+});
+
 test("right-click adds child with the selected server and personal favorites can be removed", async ({
   page,
 }) => {

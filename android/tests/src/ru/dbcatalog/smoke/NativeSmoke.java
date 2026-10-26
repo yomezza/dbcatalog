@@ -49,6 +49,9 @@ public final class NativeSmoke extends Instrumentation {
                 JSONObject state = (JSONObject) call("ResumeSession");
                 check(!state.isNull("user"), "Saved session token did not resume");
                 check(((JSONObject) call("GetCatalog")).getJSONArray("servers").length() == 1, "Catalog not preserved");
+                JSONObject server = ((JSONObject) call("GetCatalog")).getJSONArray("servers").getJSONObject(0);
+                JSONObject pdf = (JSONObject) call("ExportObjectPDF", "server", server.getString("id"));
+                check(pdf.getString("name").endsWith(".pdf") && pdf.getLong("size") > 1000, "Native PDF passport failed");
             } else {
                 JSONObject connection = new JSONObject().put("host", "10.0.2.2").put("port", 55432)
                         .put("database", "catalogdb_test").put("username", "catalogdb").put("schema", schema)
@@ -67,7 +70,7 @@ public final class NativeSmoke extends Instrumentation {
                 check(((JSONArray) call("ListDownloads")).length() > 0, "Local downloads history missing");
                 check(((JSONObject) call("GetDiagnostics")).getString("credentialState").equals("available"), "Keystore save failed");
             }
-            result.putString("stream", "PASS: Android WebView, Go, PostgreSQL, Keystore, export and session phase=" + arguments.getString("phase", "create") + "\n");
+            result.putString("stream", "PASS: Android WebView, Go, PostgreSQL, Keystore, export, PDF (resume) and session phase=" + arguments.getString("phase", "create") + "\n");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) {
             result.putString("stream", "FAIL: " + error.toString() + "\n");

@@ -178,6 +178,7 @@ with zipfile.ZipFile(work/'unsigned.apk','x') as out:
         if source.is_file():out.write(source,'assets/web/'+source.relative_to(frontend).as_posix(),compress_type=zipfile.ZIP_DEFLATED)
     for source in sorted((work/'aar/jni').glob('*/libgojni.so')):
         out.write(source,'lib/'+source.parent.name+'/'+source.name,compress_type=zipfile.ZIP_STORED)
+    out.write('docs/pdf-notices.txt','assets/catalogdb/pdf-notices.txt',compress_type=zipfile.ZIP_DEFLATED)
 with zipfile.ZipFile(work/'unsigned.apk') as archive:
     if archive.testzip() is not None:raise SystemExit('APK ZIP is corrupt')
     names=archive.namelist()

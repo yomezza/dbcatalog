@@ -49,6 +49,7 @@ interface Props {
   canDelete: boolean;
   favorite: boolean;
   onAttachments: () => void;
+  onPrint: () => void;
   onMove: () => void;
   onMovements: () => void;
   onEdit: () => void;
@@ -192,6 +193,13 @@ export function ObjectCard(p: Props) {
         />
       )}
       <div className="detail-actions">
+        <button
+          disabled={p.busy}
+          onClick={p.onPrint}
+          title="Сформировать паспорт объекта и сохранить в PDF"
+        >
+          Печать в PDF
+        </button>
         <button disabled={p.busy} onClick={p.onAttachments}>
           Вложения и инструкции
         </button>

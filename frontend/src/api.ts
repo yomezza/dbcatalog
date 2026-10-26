@@ -343,6 +343,7 @@ interface Backend {
     fingerprint: string,
   ): Promise<number>;
   ExportSelection(ids: string[]): Promise<DownloadEntry>;
+  ExportObjectPDF(kind: Kind, id: string): Promise<DownloadEntry>;
 
   SetImportRowsExcluded(
     token: string,

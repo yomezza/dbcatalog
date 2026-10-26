@@ -21,6 +21,7 @@ install -m 755 build/bin/CatalogDB "$stage/CatalogDB/CatalogDB"
 install -m 644 packaging/linux/catalogdb.desktop "$stage/CatalogDB/"
 install -m 644 build/appicon.png "$stage/CatalogDB/catalogdb.png"
 install -m 644 docs/linux.md "$stage/CatalogDB/README.md"
+install -m 644 docs/pdf-notices.txt "$stage/CatalogDB/PDF-NOTICES.txt"
 # No credentials or local connection settings are included.
 tar --owner=0 --group=0 --numeric-owner -czf "build/bin/CatalogDB-linux-x64-$version.tar.gz" -C "$stage" CatalogDB
 (

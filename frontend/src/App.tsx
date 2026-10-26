@@ -74,6 +74,13 @@ export function App() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  function printObject(object: CatalogObject) {
+    void run(async () => {
+      const file = await api().ExportObjectPDF(object.kind, object.id);
+      setMessage("PDF-паспорт сохранён в «Загрузки»");
+      await api().SaveDownloadAs(file.id);
+    });
+  }
   const [sessionHours, setSessionHours] = useState(0);
   const [liveDirty, setLiveDirty] = useState(false);
   const [liveRevision, setLiveRevision] = useState(0);
@@ -683,6 +690,7 @@ export function App() {
                 canDelete={status.user?.role === "admin"}
                 favorite={selected ? isFavorite(selected) : false}
                 onAttachments={() => selected && setAttachmentObject(selected)}
+                onPrint={() => selected && printObject(selected)}
                 onMove={() => selected && setMoveObject(selected)}
                 onMovements={() => selected && setMovementObject(selected)}
                 onEdit={() => selected && openEditor({ ...selected })}
@@ -903,6 +911,7 @@ export function App() {
           onClose={() => setContextMenu(null)}
           onOpen={() => goTo(contextMenu.object)}
           onAttachments={() => setAttachmentObject(contextMenu.object)}
+          onPrint={() => printObject(contextMenu.object)}
           onMove={() => setMoveObject(contextMenu.object)}
           onMovements={() => setMovementObject(contextMenu.object)}
           onEdit={() => openEditor({ ...contextMenu.object })}

@@ -174,6 +174,13 @@ listening:
 	if e != nil || !strings.Contains(info, ".xlsx") {
 		t.Fatal("native download lookup", e)
 	}
+	if err := invoke(t, c, "ExportObjectPDF", []any{"server", server.ID}, &export); err != "" {
+		t.Fatal("mobile PDF export", err)
+	}
+	info, e = c.DownloadInfo(export.ID)
+	if e != nil || !strings.Contains(info, "application/pdf") || !strings.Contains(info, ".pdf") {
+		t.Fatal("mobile PDF MIME", info, e)
+	}
 	if err := invoke(t, c, "Register", []any{"tablet-viewer", password, false}, nil); err != "" {
 		t.Fatal(err)
 	}

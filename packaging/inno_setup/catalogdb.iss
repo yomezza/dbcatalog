@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "0.13.1"
+#define AppVersion "0.14.0"
 #endif
 #ifndef AppExe
 #define AppExe "..\..\build\bin\CatalogDB.exe"
@@ -30,6 +30,7 @@ Name: "desktopicon"; Description: "Создать ярлык на рабочем
 
 [Files]
 Source: "{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\docs\pdf-notices.txt"; DestDir: "{app}"; DestName: "PDF-NOTICES.txt"; Flags: ignoreversion
 
 Source: "..\vendor\MicrosoftEdgeWebView2Setup.exe"; DestDir: "{tmp}"; Flags: dontcopy
 

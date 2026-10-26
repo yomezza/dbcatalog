@@ -3,6 +3,7 @@ module github.com/yomezza/test
 go 1.26.0
 
 require (
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/shakinm/xlsReader v0.9.12
 	github.com/wailsapp/wails/v2 v2.17.0

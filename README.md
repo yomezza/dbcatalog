@@ -10,11 +10,20 @@
 
 [Все версии на GitHub Releases](https://github.com/yomezza/dbcatalog/releases) · [История выпусков](docs/releases.md)
 
-[CatalogDB 0.13.1 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.1/CatalogDB-windows-x64-0.13.1.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.13.1/CatalogDB-linux-x64-0.13.1.tar.gz) · [Android APK](https://github.com/yomezza/dbcatalog/releases/download/v0.13.1/CatalogDB-android-0.13.1.apk)
+[CatalogDB 0.14.0 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.14.0/CatalogDB-windows-x64-0.14.0.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.14.0/CatalogDB-linux-x64-0.14.0.tar.gz) · [Android APK](https://github.com/yomezza/dbcatalog/releases/download/v0.14.0/CatalogDB-android-0.14.0.apk)
 
 На странице выпуска выберите файл в разделе **Assets**. Распакуйте архив и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; APK установите на планшет Android 8.0+. Нужны доступная PostgreSQL и системный WebView: Edge WebView2 на Windows, GTK/WebKitGTK на Linux, Android System WebView на Android. [Linux: запуск](docs/linux.md) · [Android: установка и сборка](docs/android.md). Пределы проверок указаны в отчёте версии; кросс-сборка не заменяет проверку нативных диалогов на реальном устройстве.
 
 [Руководство пользователя с иллюстрациями](https://github.com/yomezza/dbcatalog/wiki)
+
+## Новое в 0.14.0
+
+- «Печать в PDF» в карточке и меню сервера, экземпляра и БД; на Android — также в меню ⋮.
+- Паспорт A4 с фирменной шапкой, цветными статусами, размещением, ответственными и эффективной политикой РК.
+- Встроенная кириллица, перенос длинного текста, нумерация страниц, дата и версия записи.
+- Файл остаётся в «Загрузках» даже при отмене системного сохранения; формирование доступно наблюдателю и фиксируется в аудите.
+- Общий Go-генератор для Windows, Linux и Android; схема PostgreSQL остаётся 016.
+- [Руководство](docs/object-passports.md) · [Пример PDF](docs/examples/CatalogDB-passport-demo.pdf) · [Проверки](docs/validation-0.14.0.md).
 
 ## Новое в 0.13.1
 

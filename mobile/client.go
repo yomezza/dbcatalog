@@ -77,7 +77,7 @@ func NewClient(configPath string, store CredentialStore, events EventSink) (*Cli
 // Keep this list explicit. In particular, Close, SetChangeHandler,
 // ResolveDownload and GetServerConnection are not exposed to JavaScript.
 const uiMethods = `
-BrowseCatalog GetCatalogWorkspace GetObjectContext FindObjects SelectCatalogResult
+ExportObjectPDF BrowseCatalog GetCatalogWorkspace GetObjectContext FindObjects SelectCatalogResult
 CountSelectionOutside ExportCatalogResult PreviewMove ApplyMove GetMovements
 ListAttachments UploadAttachment SaveInstruction InstructionTemplate DeleteAttachment
 DownloadAttachment GetPolicyPage GetWorkspace PreviewExcelPolicies ListFilterPresets
@@ -184,6 +184,8 @@ func (c *Client) DownloadInfo(id string) (string, error) {
 		contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 	case ".docx":
 		contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case ".pdf":
+		contentType = "application/pdf"
 	}
 	if contentType == "" {
 		contentType = "application/octet-stream"

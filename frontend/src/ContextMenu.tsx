@@ -12,6 +12,7 @@ interface Props {
   onOpen: () => void;
   onConnect: () => void;
   onAttachments: () => void;
+  onPrint: () => void;
   onMove: () => void;
   onMovements: () => void;
   onEdit: () => void;
@@ -87,6 +88,9 @@ export function ContextMenu(p: Props) {
       )}
       <button role="menuitem" onClick={action(p.onOpen)}>
         Открыть карточку
+      </button>
+      <button role="menuitem" onClick={action(p.onPrint)}>
+        Печать в PDF
       </button>
       <button role="menuitem" onClick={action(p.onAttachments)}>
         Вложения и инструкции
