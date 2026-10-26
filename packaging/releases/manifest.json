@@ -196,6 +196,22 @@
         "downloads/CatalogDB-android-0.13.1.apk",
         "downloads/CatalogDB-android-0.13.1.apk.sha256"
       ]
+    },
+    {
+      "version": "0.14.0",
+      "commit": "5372d80d57244509f4500c695dba22382e6cc91d",
+      "title": "CatalogDB 0.14.0 — PDF-паспорта объектов",
+      "prerelease": false,
+      "make_latest": "true",
+      "body": "Паспорт сервера, экземпляра СУБД или базы данных в оформленном PDF.\n\n- «Печать в PDF» в карточке и меню объекта; на Android — также через ⋮.\n- Формат A4: фирменная шапка, цветные статусы, сводные блоки, разделы и номера страниц.\n- Актуальные данные объекта, родительского сервера, ответственные и эффективная политика резервного копирования.\n- Собственная отключённая политика перекрывает унаследованную; Oracle SID не требует экземпляра.\n- Встроенная кириллица, перенос длинных значений и описаний, UUID/версия, автор и дата с часовым смещением.\n- PDF сохраняется в «Загрузки» до диалога сохранения копии; отмена диалога не удаляет файл. Наблюдатель может экспортировать; формирование фиксируется в аудите.\n- Один Go-генератор для Windows, Linux и Android, без браузерного движка печати. Схема PostgreSQL остаётся 016.\n\n### Скачать\n\nWindows x64: распакуйте ZIP и запустите CatalogDB.exe; требуется Edge WebView2.\nLinux x64: распакуйте TAR.GZ и запустите ./CatalogDB; нужны glibc 2.41+, GTK 3 и WebKitGTK 4.1.\nAndroid 8+: установите APK для ARMv7 / ARM64 / x86_64; прежний сертификат, versionCode 15. Результат установки на Huawei ещё не подтверждён.\nРядом опубликованы SHA-256 всех файлов.\n\n### Проверено\n\nGo с PostgreSQL 17 и race detector, go vet, 14 Vitest и 52 браузерных сценария. Проверены кириллица, многостраничный PDF, длинные поля, политики, права, аудит и mobile MIME. Linux запущен нативно под D-Bus/Xvfb. Android CI на KVM проверил обновление, сохранённый вход и создание PDF через WebView → Java → Go → PostgreSQL. Windows CI проверил Go-тесты, установщик, обновление с 0.8.1 и создание окна.\n\nФизическая печать, PDF/A и электронная подпись не реализованы. Паспорт описывает настройки РК, а не фактическую успешность копий. Внешние просмотрщики и системные диалоги на физических устройствах требуют отдельного прогона.\n\n[Инструкция с примером](https://github.com/yomezza/dbcatalog/wiki/Printing-to-PDF) · [Демонстрационный PDF](https://github.com/yomezza/dbcatalog/blob/v0.14.0/docs/examples/CatalogDB-passport-demo.pdf) · [Проверки](https://github.com/yomezza/dbcatalog/blob/v0.14.0/docs/validation-0.14.0.md) · [CI](https://github.com/yomezza/dbcatalog/actions/runs/40291238803)\n\nИсходники и файлы: `5372d80d57244509f4500c695dba22382e6cc91d`.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.14.0.zip",
+        "downloads/CatalogDB-windows-x64-0.14.0.zip.sha256",
+        "downloads/CatalogDB-linux-x64-0.14.0.tar.gz",
+        "downloads/CatalogDB-linux-x64-0.14.0.tar.gz.sha256",
+        "downloads/CatalogDB-android-0.14.0.apk",
+        "downloads/CatalogDB-android-0.14.0.apk.sha256"
+      ]
     }
   ]
 }

@@ -45,7 +45,7 @@ PROJECT_CONTEXT.md, docs/DEVELOPMENT.md и docs/KNOWN_ISSUES.md.
 | Версия приложения | `0.14.0` |
 | Версия схемы | `016`, миграции `001`–`016` |
 | Последнее функциональное изменение | PDF-паспорта серверов, экземпляров и БД; общий Go-генератор |
-| Коммит архивов и тег `v0.13.1` | `9e386e3476926e7b15b2962c7ebcda2aa2e915d5` |
+| Коммит архивов и тег `v0.14.0` | `5372d80d57244509f4500c695dba22382e6cc91d` |
 | Release | <https://github.com/yomezza/dbcatalog/releases/tag/v0.14.0> |
 | Wiki | <https://github.com/yomezza/dbcatalog/wiki> |
 | Отдельный Git Wiki | `https://github.com/yomezza/dbcatalog.wiki.git` |
