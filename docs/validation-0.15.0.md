@@ -32,4 +32,14 @@ Android instrumentation прошёл на Android 15 / Nexus 7 с KVM: WebView �
 
 ## Публикация
 
-Архивы и SHA-256 подготовлены. Результат публичной публикации и скачивания фиксируется после workflow; наличие локальных файлов не означает опубликованный Release.
+[Release v0.15.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.15.0) опубликован как **Latest**, не prerelease. [Publisher 40673484851](https://github.com/yomezza/dbcatalog/actions/runs/40673484851) успешен. Тег указывает на коммит архивов `a52ef307ff2a0d7f1139e5ee63786edbfe6b1e40`.
+
+Все шесть вложений скачаны с публичного GitHub Release; размеры и SHA-256 совпали с файлами репозитория. `/releases/latest` перенаправляет на v0.15.0.
+
+| Файл | Размер, байт | SHA-256 |
+| --- | ---: | --- |
+| Windows ZIP | 8 436 178 | `de90694d579fec08cef06a32f02e0824d5ecc4b0beb36e0e4f33e8bbdd0e5411` |
+| Linux TAR.GZ | 7 879 672 | `cc2343f6ebb48cde75e3d4e11f052aa5a27165c4325f31a8933c5683c184ed99` |
+| Android APK | 54 256 598 | `c6ee5be4ced270c8766d1500a08edaa215e5950a162989ebcad2f8a1c9662ce5` |
+
+Wiki обновлена отдельно, commit `a96dab5`: [Печать в PDF](https://github.com/yomezza/dbcatalog/wiki/Printing-to-PDF), краткий пример и подборка двух БД доступны публично.
