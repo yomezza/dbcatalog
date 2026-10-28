@@ -212,6 +212,22 @@
         "downloads/CatalogDB-android-0.14.0.apk",
         "downloads/CatalogDB-android-0.14.0.apk.sha256"
       ]
+    },
+    {
+      "version": "0.15.0",
+      "commit": "a52ef307ff2a0d7f1139e5ee63786edbfe6b1e40",
+      "title": "CatalogDB 0.15.0 — Печать выбранных БД и краткий PDF",
+      "prerelease": false,
+      "make_latest": "true",
+      "body": "Печать выбранных баз данных в один PDF и краткий паспорт на одной странице A4.\n\n- Отметьте БД флажками и нажмите «Печать выбранных БД». Учитывается выбор вне текущего поиска и загруженной страницы.\n- В параметрах одиночной и групповой печати: подробный или краткий вид и флажок «Включать политики резервного копирования».\n- Подробный вид сохраняет оформление полного паспорта; каждый объект начинается с новой страницы.\n- Краткий вид размещает полный паспорт в двух колонках A4: одна БД — одна страница. Основной шрифт 9–7 pt. При переполнении предлагается подробный вид; текст не обрезается.\n- Снятый флажок исключает раздел РК и показатель политики из сводки каждого объекта.\n- Отдельные сведения о сопровождении сервера, согласованное чтение всей подборки, действующая собственная/унаследованная политика, поддержка Oracle без экземпляра.\n- До 500 БД в одном файле. Ошибка записи не оставляет частичный PDF. Файл сохраняется в «Загрузки» до системного диалога копирования.\n- Аудит фиксирует количество объектов, вид и включение политик. Наблюдатель может печатать, заблокированный пользователь — нет.\n\n### Скачать\n\nWindows x64: распакуйте ZIP и запустите CatalogDB.exe; нужен Edge WebView2.\nLinux x64: распакуйте TAR.GZ и запустите ./CatalogDB; glibc 2.41+, GTK 3 и WebKitGTK 4.1.\nAndroid 8+: APK ARMv7/ARM64/x86_64, прежний сертификат, versionCode 16. Новых SQL-миграций нет, схема PostgreSQL остаётся 016.\nРядом опубликованы SHA-256. Физическая печать, PDF/A и электронная подпись не реализованы. Установка на физическом Huawei ещё не подтверждена.\n\n### Проверки\n\nGo с PostgreSQL 17 и race detector, go vet, 14 Vitest и 53 браузерных сценария. Проверены сохранность всех полей, точное число страниц, исключение политик из обоих видов, согласованный снимок при параллельных изменениях, одноимённые SID разных родителей и отказ без частичного файла. Windows CI проверил установщик/обновление и нативное окно; Linux запущен нативно. Android CI на KVM проверил создание краткого PDF выбранной БД через WebView → Java → Go → PostgreSQL после обновления APK и восстановления сеанса.\n\n[Инструкция](https://github.com/yomezza/dbcatalog/wiki/Printing-to-PDF) · [Краткий пример](https://github.com/yomezza/dbcatalog/blob/v0.15.0/docs/examples/CatalogDB-passport-compact-demo.pdf) · [Две БД в одном PDF](https://github.com/yomezza/dbcatalog/blob/v0.15.0/docs/examples/CatalogDB-passports-selected-demo.pdf) · [Проверки](https://github.com/yomezza/dbcatalog/blob/catalogdb-go/docs/validation-0.15.0.md) · [CI](https://github.com/yomezza/dbcatalog/actions/runs/40672433949)\n\nИсходники и файлы: `a52ef307ff2a0d7f1139e5ee63786edbfe6b1e40`.\n",
+      "assets": [
+        "downloads/CatalogDB-windows-x64-0.15.0.zip",
+        "downloads/CatalogDB-windows-x64-0.15.0.zip.sha256",
+        "downloads/CatalogDB-linux-x64-0.15.0.tar.gz",
+        "downloads/CatalogDB-linux-x64-0.15.0.tar.gz.sha256",
+        "downloads/CatalogDB-android-0.15.0.apk",
+        "downloads/CatalogDB-android-0.15.0.apk.sha256"
+      ]
     }
   ]
 }

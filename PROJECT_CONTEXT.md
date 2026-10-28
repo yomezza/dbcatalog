@@ -45,7 +45,7 @@ PROJECT_CONTEXT.md, docs/DEVELOPMENT.md и docs/KNOWN_ISSUES.md.
 | Версия приложения | `0.15.0` |
 | Версия схемы | `016`, миграции `001`–`016` |
 | Последнее функциональное изменение | PDF выбранных БД, краткий вид на одну страницу и исключение политик РК |
-| Коммит архивов и тег `v0.14.0` | `5372d80d57244509f4500c695dba22382e6cc91d` |
+| Коммит архивов и тег `v0.15.0` | `a52ef307ff2a0d7f1139e5ee63786edbfe6b1e40` |
 | Release | <https://github.com/yomezza/dbcatalog/releases/tag/v0.15.0> |
 | Wiki | <https://github.com/yomezza/dbcatalog/wiki> |
 | Отдельный Git Wiki | `https://github.com/yomezza/dbcatalog.wiki.git` |
