@@ -195,7 +195,7 @@ MatePad 12 X / HarmonyOS 4.3.0.146 отклонил APK 0.13.0: «В ходе а
 - [Вложения, перемещения и большие каталоги](docs/documents-movements-large-catalog.md).
 - [Linux](docs/linux.md), [Android](docs/android.md), [Windows-проверки](docs/windows-release-check.md), [выпуски](docs/releases.md).
 - [Проверка 0.13.0](docs/validation-0.13.0.md), [галерея Linux](docs/linux-screenshots.md).
-- [Wiki для новичков](https://github.com/yomezza/dbcatalog/wiki): 18 страниц, 11 скриншотов, 2 учебных XLSX; она хранится отдельно от основного репозитория.
+- [Wiki для новичков](https://github.com/yomezza/dbcatalog/wiki): 19 страниц, 11 Linux-скриншотов, примеры/превью PDF и 2 учебных XLSX; она хранится отдельно от основного репозитория.
 
 При продолжении проекта сохраняйте этот файл кратким сводным источником, а подробности проверок и новых решений дописывайте в соответствующие документы. Не превращайте контекст в необработанную копию переписки.
 
