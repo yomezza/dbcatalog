@@ -18,6 +18,7 @@ interface Props {
   onRefresh: () => Promise<void>;
   onAddServer: () => void;
   onMessage: (message: string) => void;
+  onPrintSelection: (ids: string[]) => void;
   run: AsyncTaskRunner;
   children: ReactNode;
 }
@@ -33,6 +34,7 @@ export function CatalogView({
   onRefresh,
   onAddServer,
   onMessage,
+  onPrintSelection,
   run,
   children,
 }: Props) {
@@ -147,6 +149,12 @@ export function CatalogView({
           }
         >
           Экспорт выбранного
+        </button>
+        <button
+          disabled={busy || !checked.size}
+          onClick={() => onPrintSelection([...checked.keys()])}
+        >
+          Печать выбранных БД
         </button>
       </div>
       {bulkOpen && (

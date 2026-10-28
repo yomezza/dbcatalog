@@ -4,7 +4,7 @@ Android-клиент использует общий интерфейс React и
 
 ## Установка и подключение
 
-1. Скачайте `CatalogDB-android-0.14.0.apk` из [GitHub Release](https://github.com/yomezza/dbcatalog/releases/tag/v0.14.0). Рядом опубликован SHA-256.
+1. Скачайте `CatalogDB-android-0.15.0.apk` из [GitHub Release](https://github.com/yomezza/dbcatalog/releases/tag/v0.15.0). Рядом опубликован SHA-256.
 2. На планшете разрешите установку APK из выбранного браузера/файлового менеджера и откройте файл. Нужны **Android 8.0+**, актуальный системный WebView и архитектура ARMv7, ARM64 или x86_64. Google Play Services не требуются.
 3. Укажите адрес PostgreSQL, порт, существующую базу, схему и PostgreSQL-учётную запись. `localhost` означает сам планшет; для рабочего сервера нужен доступный адрес, при необходимости — корпоративный VPN. Пустая схема означает `dbcatalog`.
 4. Для рабочего подключения используйте TLS с проверкой сертификата. При собственном удостоверяющем центре нажмите **«Выбрать сертификат…»** и выберите X.509 PEM/DER до 2 МиБ. Копия сохраняется в закрытой папке приложения.
@@ -56,10 +56,10 @@ Android job CI проверяет сборку с **одноразовым те�
 
 ## Нативная проверка
 
-[Отчёт 0.14.0](validation-0.14.0.md) различает браузерные сценарии, интеграцию Go/PostgreSQL и настоящий Android. Для повторения нативного smoke есть отдельный instrumentation APK в `android/tests`, который не входит в приложение. Он подписывается тем же сертификатом и предназначен **только для одноразовой compose PostgreSQL** по `10.0.2.2:55432` из эмулятора:
+[Отчёт 0.15.0](validation-0.15.0.md) различает браузерные сценарии, интеграцию Go/PostgreSQL и настоящий Android. Для повторения нативного smoke есть отдельный instrumentation APK в `android/tests`, который не входит в приложение. Он подписывается тем же сертификатом и предназначен **только для одноразовой compose PostgreSQL** по `10.0.2.2:55432` из эмулятора:
 
 ```sh
-adb install --no-incremental -r build/bin/CatalogDB-android-0.14.0.apk
+adb install --no-incremental -r build/bin/CatalogDB-android-0.15.0.apk
 bash packaging/android-native-smoke.sh android_smoke_unique create
 adb shell am force-stop ru.dbcatalog.app
 bash packaging/android-native-smoke.sh android_smoke_unique resume
@@ -75,4 +75,4 @@ bash packaging/android-native-smoke.sh android_smoke_unique resume
 
 0.13.1 использует тот же сертификат и подписи v1/v2, с именами `CERT.RSA` / `CERT.SF`. Это вариант для проверки совместимости, а не подтверждённое устранение причины на Huawei. Скачайте именно новый APK и попробуйте установку. Подтверждение от владельца планшета ещё не получено.
 
-Если ошибка сохраняется, нужен подробный результат Package Manager: при подключённом по USB планшете с разрешённой отладкой выполните на компьютере `adb install -r CatalogDB-android-0.14.0.apk` и сохраните полный текст ошибки. Это установка/обновление с сохранением данных; удалять приложение или сертификаты не требуется.
+Если ошибка сохраняется, нужен подробный результат Package Manager: при подключённом по USB планшете с разрешённой отладкой выполните на компьютере `adb install -r CatalogDB-android-0.15.0.apk` и сохраните полный текст ошибки. Это установка/обновление с сохранением данных; удалять приложение или сертификаты не требуется.

@@ -10,11 +10,20 @@
 
 [Все версии на GitHub Releases](https://github.com/yomezza/dbcatalog/releases) · [История выпусков](docs/releases.md)
 
-[CatalogDB 0.14.0 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.14.0/CatalogDB-windows-x64-0.14.0.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.14.0/CatalogDB-linux-x64-0.14.0.tar.gz) · [Android APK](https://github.com/yomezza/dbcatalog/releases/download/v0.14.0/CatalogDB-android-0.14.0.apk)
+[CatalogDB 0.15.0 для Windows x64](https://github.com/yomezza/dbcatalog/releases/download/v0.15.0/CatalogDB-windows-x64-0.15.0.zip) · [Linux x64](https://github.com/yomezza/dbcatalog/releases/download/v0.15.0/CatalogDB-linux-x64-0.15.0.tar.gz) · [Android APK](https://github.com/yomezza/dbcatalog/releases/download/v0.15.0/CatalogDB-android-0.15.0.apk)
 
 На странице выпуска выберите файл в разделе **Assets**. Распакуйте архив и запустите `CatalogDB.exe` в Windows или `./CatalogDB` в Linux; APK установите на планшет Android 8.0+. Нужны доступная PostgreSQL и системный WebView: Edge WebView2 на Windows, GTK/WebKitGTK на Linux, Android System WebView на Android. [Linux: запуск](docs/linux.md) · [Android: установка и сборка](docs/android.md). Пределы проверок указаны в отчёте версии; кросс-сборка не заменяет проверку нативных диалогов на реальном устройстве.
 
 [Руководство пользователя с иллюстрациями](https://github.com/yomezza/dbcatalog/wiki)
+
+## Новое в 0.15.0
+
+- Печать отмеченных БД в один PDF, включая выбор вне текущего поиска и страницы.
+- Окно параметров для одиночной и групповой печати: подробный или краткий вид, флажок политик РК.
+- Краткий паспорт на одной странице A4; длинные сведения не обрезаются — при переполнении предлагается подробный вид.
+- Отдельные сведения о сопровождении сервера, эффективные политики, согласованное чтение всей подборки и аудит параметров.
+- До 500 БД в одном файле; все три платформы, схема PostgreSQL остаётся 016.
+- [Руководство](docs/object-passports.md) · [Краткий пример](docs/examples/CatalogDB-passport-compact-demo.pdf) · [Две БД в одном PDF](docs/examples/CatalogDB-passports-selected-demo.pdf) · [Проверки](docs/validation-0.15.0.md).
 
 ## Новое в 0.14.0
 

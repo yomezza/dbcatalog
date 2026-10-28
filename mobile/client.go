@@ -77,7 +77,7 @@ func NewClient(configPath string, store CredentialStore, events EventSink) (*Cli
 // Keep this list explicit. In particular, Close, SetChangeHandler,
 // ResolveDownload and GetServerConnection are not exposed to JavaScript.
 const uiMethods = `
-ExportObjectPDF BrowseCatalog GetCatalogWorkspace GetObjectContext FindObjects SelectCatalogResult
+ExportObjectPDF ExportObjectPDFWithOptions ExportSelectionPDF BrowseCatalog GetCatalogWorkspace GetObjectContext FindObjects SelectCatalogResult
 CountSelectionOutside ExportCatalogResult PreviewMove ApplyMove GetMovements
 ListAttachments UploadAttachment SaveInstruction InstructionTemplate DeleteAttachment
 DownloadAttachment GetPolicyPage GetWorkspace PreviewExcelPolicies ListFilterPresets

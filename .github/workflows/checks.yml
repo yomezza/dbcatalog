@@ -71,7 +71,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Old installer failed' }
           & $iscc packaging/inno_setup/catalogdb.iss
           if ($LASTEXITCODE -ne 0) { throw 'New installer failed' }
-          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.14.0.exe -ExpectedExe build/bin/CatalogDB.exe
+          ./packaging/windows-smoke.ps1 -OldInstaller build/bin/CatalogDB_Setup_0.8.1.exe -NewInstaller build/bin/CatalogDB_Setup_0.15.0.exe -ExpectedExe build/bin/CatalogDB.exe
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -82,7 +82,7 @@ jobs:
           name: CatalogDB-windows-x64
           path: |
             build/bin/CatalogDB.exe
-            build/bin/CatalogDB_Setup_0.14.0.exe
+            build/bin/CatalogDB_Setup_0.15.0.exe
 
   linux:
     runs-on: ubuntu-24.04

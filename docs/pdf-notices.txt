@@ -1,4 +1,4 @@
-CatalogDB 0.14.0 — PDF component notices
+CatalogDB 0.15.0 — PDF component notices
 
 go-pdf/fpdf v0.9.0
 https://github.com/go-pdf/fpdf

@@ -1,11 +1,24 @@
 export interface Diagnostics {
- generatedAt: string; appVersion: string; goVersion: string; wailsVersion: string;
- platform: string; revision: string; modified: boolean; configState: string;
- credentialBackend: string; credentialState: string; credentialCheckedAt: string;
- databaseState: string; postgresqlVersion: string; readOnly: boolean; tls: boolean;
- poolConnections: number; poolMaximum: number; migrationState: string;
- migrations: {version: number; state: string}[];
- listener: {state: string; connectedAt: string; lastEventAt: string};
+  generatedAt: string;
+  appVersion: string;
+  goVersion: string;
+  wailsVersion: string;
+  platform: string;
+  revision: string;
+  modified: boolean;
+  configState: string;
+  credentialBackend: string;
+  credentialState: string;
+  credentialCheckedAt: string;
+  databaseState: string;
+  postgresqlVersion: string;
+  readOnly: boolean;
+  tls: boolean;
+  poolConnections: number;
+  poolMaximum: number;
+  migrationState: string;
+  migrations: { version: number; state: string }[];
+  listener: { state: string; connectedAt: string; lastEventAt: string };
 }
 export interface Connection {
   host: string;
@@ -344,6 +357,15 @@ interface Backend {
   ): Promise<number>;
   ExportSelection(ids: string[]): Promise<DownloadEntry>;
   ExportObjectPDF(kind: Kind, id: string): Promise<DownloadEntry>;
+  ExportObjectPDFWithOptions(
+    kind: Kind,
+    id: string,
+    options: PDFOptions,
+  ): Promise<DownloadEntry>;
+  ExportSelectionPDF(
+    ids: string[],
+    options: PDFOptions,
+  ): Promise<DownloadEntry>;
 
   SetImportRowsExcluded(
     token: string,
@@ -516,6 +538,10 @@ export interface FilterPreset {
 export interface ObjectRef {
   id: string;
   version: number;
+}
+export interface PDFOptions {
+  layout: "detailed" | "compact";
+  includePolicies: boolean;
 }
 export interface BulkPatch {
   setResponsible: boolean;

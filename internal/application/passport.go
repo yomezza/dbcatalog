@@ -2,11 +2,9 @@ package application
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/yomezza/test/internal/buildinfo"
@@ -14,50 +12,9 @@ import (
 	"github.com/yomezza/test/internal/reports"
 )
 
-// ExportObjectPDF reads the object, parents, policy and counts from one
-// authorized snapshot. No client-provided record contents enter the report.
+// ExportObjectPDF preserves the original detailed export for older native clients.
 func (s *Service) ExportObjectPDF(kind, id string) (downloads.Entry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	store, err := s.downloadStore(ctx)
-	if err != nil {
-		return downloads.Entry{}, err
-	}
-	tx, err := s.readTransaction(ctx, false, false)
-	if err != nil {
-		return downloads.Entry{}, err
-	}
-	defer tx.Rollback(ctx)
-	now := time.Now()
-	report, err := buildObjectPassport(ctx, tx, kind, id, s.user.Login, now)
-	if err != nil {
-		return downloads.Entry{}, err
-	}
-	data, err := reports.RenderPassport(report)
-	if err != nil {
-		return downloads.Entry{}, errors.New("Не удалось сформировать PDF-паспорт объекта")
-	}
-	if err = event(ctx, tx, s.user.ID, "pdf_export", kind, id); err != nil {
-		return downloads.Entry{}, importDatabaseError(err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return downloads.Entry{}, importDatabaseError(err)
-	}
-	name := strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || strings.ContainsRune(`/\:*?"<>|`, r) {
-			return '_'
-		}
-		return r
-	}, report.Name)
-	name = string([]rune(name)[:min(60, len([]rune(name)))])
-	name = "CatalogDB-Паспорт-" + strings.Trim(name, " .") + "-" + now.Format("2006-01-02-150405") + ".pdf"
-	entry, err := store.Add(name, "PDF-паспорт объекта", data)
-	if err != nil {
-		return downloads.Entry{}, errors.New("Не удалось сохранить PDF в локальные загрузки")
-	}
-	return entry, nil
+	return s.ExportObjectPDFWithOptions(kind, id, PDFOptions{Layout: "detailed", IncludePolicies: true})
 }
 
 func buildObjectPassport(ctx context.Context, tx pgx.Tx, kind, id, author string, now time.Time) (reports.Passport, error) {
@@ -65,7 +22,29 @@ func buildObjectPassport(ctx context.Context, tx pgx.Tx, kind, id, author string
 	if err != nil {
 		return reports.Passport{}, err
 	}
+	out := passportFromContext(c, author, now)
+	if kind == "server" {
+		var instances, databases, oracle int64
+		err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM instances WHERE server_id=$1),
+    (SELECT count(*) FROM databases d LEFT JOIN instances i ON i.id=d.instance_id WHERE coalesce(d.server_id,i.server_id)=$1),
+    (SELECT count(*) FROM databases WHERE server_id=$1)`, id).Scan(&instances, &databases, &oracle)
+		if err != nil {
+			return out, importDatabaseError(err)
+		}
+		out.Summary = []reports.Field{{Label: "Экземпляры СУБД", Value: fmt.Sprint(instances)}, {Label: "Базы данных", Value: fmt.Sprint(databases)}, {Label: "Из них Oracle SID", Value: fmt.Sprint(oracle)}}
+	} else if kind == "instance" {
+		var count int64
+		if err = tx.QueryRow(ctx, `SELECT count(*) FROM databases WHERE instance_id=$1`, id).Scan(&count); err != nil {
+			return out, importDatabaseError(err)
+		}
+		out.Summary = []reports.Field{{Label: "СУБД", Value: c.Object.DBMS}, {Label: "Версия СУБД", Value: c.Object.DBMSVersion}, {Label: "Базы данных", Value: fmt.Sprint(count)}}
+	}
+	return out, nil
+}
+
+func passportFromContext(c ObjectContext, author string, now time.Time) reports.Passport {
 	o := c.Object
+	kind := o.Kind
 	server := c.Catalog.Servers[0]
 	var instance Object
 	if len(c.Catalog.Instances) > 0 {
@@ -80,22 +59,7 @@ func buildObjectPassport(ctx context.Context, tx pgx.Tx, kind, id, author string
 	add := func(title string, fields ...reports.Field) {
 		out.Sections = append(out.Sections, reports.Section{Title: title, Fields: fields})
 	}
-	if kind == "server" {
-		var instances, databases, oracle int64
-		err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM instances WHERE server_id=$1),
-		 (SELECT count(*) FROM databases d LEFT JOIN instances i ON i.id=d.instance_id WHERE coalesce(d.server_id,i.server_id)=$1),
-		 (SELECT count(*) FROM databases WHERE server_id=$1)`, id).Scan(&instances, &databases, &oracle)
-		if err != nil {
-			return out, importDatabaseError(err)
-		}
-		out.Summary = []reports.Field{{Label: "Экземпляры СУБД", Value: fmt.Sprint(instances)}, {Label: "Базы данных", Value: fmt.Sprint(databases)}, {Label: "Из них Oracle SID", Value: fmt.Sprint(oracle)}}
-	} else if kind == "instance" {
-		var count int64
-		if err = tx.QueryRow(ctx, `SELECT count(*) FROM databases WHERE instance_id=$1`, id).Scan(&count); err != nil {
-			return out, importDatabaseError(err)
-		}
-		out.Summary = []reports.Field{{Label: "СУБД", Value: dbms}, {Label: "Версия СУБД", Value: dbmsVersion}, {Label: "Базы данных", Value: fmt.Sprint(count)}}
-	} else {
+	if kind == "database" {
 		policyLabel := "Не назначена"
 		for _, p := range c.Policies {
 			if p.ObjectID == o.ID || p.Kind == "instance" {
@@ -132,6 +96,13 @@ func buildObjectPassport(ctx context.Context, tx pgx.Tx, kind, id, author string
 	}
 	placement = append(placement, reports.Field{Label: "Подключение к серверу", Value: server.Attributes.ConnectionMethod}, reports.Field{Label: "Доменное членство", Value: server.Attributes.Domain}, reports.Field{Label: "Операционная система", Value: server.OS}, reports.Field{Label: "Версия ОС", Value: server.Attributes.OSVersion}, reports.Field{Label: "Семейство ОС", Value: server.Attributes.OSFamily})
 	add("Размещение и техническая среда", placement...)
+	if kind != "server" {
+		fields := []reports.Field{{Label: "Состояние сервера", Value: server.Status}, {Label: "Тип эксплуатации сервера", Value: server.Environment}, {Label: "Организация сервера", Value: server.Attributes.ServiceOrganization}, {Label: "Руководитель сервера", Value: server.Attributes.Supervisor}, {Label: "Ответственный за сервер", Value: server.Attributes.Responsible}, {Label: "Работа АБД на сервере", Value: strings.Join(server.Attributes.Administration, "\n")}}
+		if server.Description != "" {
+			fields = append(fields, reports.Field{Label: "Описание сервера", Value: server.Description})
+		}
+		add("Сведения и сопровождение сервера", fields...)
+	}
 	add("Ответственные и сопровождение", reports.Field{Label: "Обслуживающая организация", Value: o.Attributes.ServiceOrganization}, reports.Field{Label: "Сопровождение (руководитель)", Value: o.Attributes.Supervisor}, reports.Field{Label: "Ответственное лицо", Value: o.Attributes.Responsible}, reports.Field{Label: "Работа АБД", Value: strings.Join(o.Attributes.Administration, "\n")})
 	if kind != "server" {
 		var policy *Policy
@@ -166,5 +137,5 @@ func buildObjectPassport(ctx context.Context, tx pgx.Tx, kind, id, author string
 	if strings.TrimSpace(o.Description) != "" {
 		add("Описание объекта", reports.Field{Label: "Описание", Value: o.Description})
 	}
-	return out, nil
+	return out
 }

@@ -207,15 +207,29 @@ async function login(page: Page, role = "admin", expand = true) {
       .getByRole("button", { name: "Раскрыть все", exact: true })
       .click();
 }
-test("PDF passport exports the chosen object, keeps cancelled saves and reports failures for viewers", async ({ page }) => {
+test("PDF passport offers layouts and policy visibility, keeps cancelled saves and reports failures for viewers", async ({
+  page,
+}) => {
   await login(page, "viewer");
   await page.evaluate(() => {
     (window as any).__pdfCalls = [];
     (window as any).__pdfSaves = [];
-    window.go!.main.App.ExportObjectPDF = async (kind, id) => {
-      (window as any).__pdfCalls.push({ kind, id });
+    window.go!.main.App.ExportObjectPDFWithOptions = async (
+      kind,
+      id,
+      options,
+    ) => {
+      (window as any).__pdfCalls.push({ kind, id, options });
       if ((window as any).__pdfFailure) throw new Error("Объект уже удалён");
-      return { id: "pdf-1", name: "Паспорт.pdf", category: "PDF-паспорт объекта", size: 1000, sha256: "demo", available: true, createdAt: new Date().toISOString() };
+      return {
+        id: "pdf-1",
+        name: "Паспорт.pdf",
+        category: "PDF-паспорт объекта",
+        size: 1000,
+        sha256: "demo",
+        available: true,
+        createdAt: new Date().toISOString(),
+      };
     };
     window.go!.main.App.SaveDownloadAs = async (id) => {
       (window as any).__pdfSaves.push(id);
@@ -223,18 +237,135 @@ test("PDF passport exports the chosen object, keeps cancelled saves and reports 
     };
   });
   await page.locator(".tree-node").filter({ hasText: "payroll" }).click();
-  await page.locator(".detail-panel").getByRole("button", { name: "Печать в PDF", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__pdfCalls)).toEqual([{ kind: "database", id: "d1" }]);
-  await expect(page.locator(".notice[role=status]")).toContainText("PDF-паспорт сохранён");
-  await page.locator(".tree-node").filter({ hasText: "host-a" }).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Печать в PDF", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__pdfCalls)).toEqual([{ kind: "database", id: "d1" }, { kind: "server", id: "s1" }]);
+  await page
+    .locator(".detail-panel")
+    .getByRole("button", { name: "Печать в PDF", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Печать в PDF",
+    exact: true,
+  });
+  await expect(dialog.getByRole("radio", { name: /Подробный/ })).toBeChecked();
+  await expect(
+    dialog.getByRole("checkbox", {
+      name: "Включать политики резервного копирования",
+    }),
+  ).toBeChecked();
+  await dialog.getByRole("radio", { name: /Краткий/ }).check();
+  await dialog
+    .getByRole("checkbox", { name: "Включать политики резервного копирования" })
+    .uncheck();
+  await dialog
+    .getByRole("button", { name: "Сохранить PDF", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__pdfCalls))
+    .toEqual([
+      {
+        kind: "database",
+        id: "d1",
+        options: { layout: "compact", includePolicies: false },
+      },
+    ]);
+  await expect(page.locator(".notice[role=status]")).toContainText(
+    "PDF-паспорт сохранён",
+  );
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "host-a" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Печать в PDF", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Сохранить PDF", exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__pdfCalls.length))
+    .toBe(2);
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await page.evaluate(() => { (window as any).__pdfFailure = true; });
-  await page.locator(".tree-node").filter({ hasText: "pg-main" }).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Печать в PDF", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Объект уже удалён");
-  expect(await page.evaluate(() => (window as any).__pdfSaves)).toEqual(["pdf-1", "pdf-1"]);
+  await page.evaluate(() => {
+    (window as any).__pdfFailure = true;
+  });
+  await page
+    .locator(".tree-node")
+    .filter({ hasText: "pg-main" })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Печать в PDF", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Сохранить PDF", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toContainText("Объект уже удалён");
+  expect(await page.evaluate(() => (window as any).__pdfSaves)).toEqual([
+    "pdf-1",
+    "pdf-1",
+  ]);
+  await dialog.getByRole("button", { name: "Отмена", exact: true }).click();
+});
+
+test("selected database PDF retains choices outside search and does not export a cancelled dialog", async ({
+  page,
+}) => {
+  await login(page, "viewer");
+  await page.evaluate(() => {
+    (window as any).__selectionPrint = [];
+    (window as any).__pdfSaved = [];
+    window.go!.main.App.ExportSelectionPDF = async (ids, options) => {
+      (window as any).__selectionPrint.push({ ids, options });
+      return {
+        id: "batch-pdf",
+        name: "Выбранные.pdf",
+        category: "PDF",
+        size: 1000,
+        sha256: "demo",
+        available: true,
+        createdAt: new Date().toISOString(),
+      };
+    };
+    window.go!.main.App.SaveDownloadAs = async (id) => {
+      (window as any).__pdfSaved.push(id);
+      return true;
+    };
+  });
+  const button = page.getByRole("button", {
+    name: "Печать выбранных БД",
+    exact: true,
+  });
+  await expect(button).toBeDisabled();
+  await page
+    .getByRole("checkbox", { name: "Выбрать БД payroll", exact: true })
+    .check();
+  await page
+    .getByRole("textbox", { name: "Поиск в каталоге" })
+    .fill("Нет совпадений");
+  await expect(page.getByText(/вне результата: 1/)).toBeVisible();
+  await button.click();
+  let dialog = page.getByRole("dialog", { name: "Печать в PDF", exact: true });
+  await expect(dialog).toContainText("Выбрано БД: 1");
+  await dialog.getByRole("button", { name: "Отмена", exact: true }).click();
+  expect(await page.evaluate(() => (window as any).__selectionPrint)).toEqual(
+    [],
+  );
+  await button.click();
+  dialog = page.getByRole("dialog", { name: "Печать в PDF", exact: true });
+  await dialog.getByRole("radio", { name: /Краткий/ }).check();
+  await dialog
+    .getByRole("checkbox", { name: "Включать политики резервного копирования" })
+    .uncheck();
+  await dialog
+    .getByRole("button", { name: "Сохранить PDF", exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__selectionPrint))
+    .toEqual([
+      { ids: ["d1"], options: { layout: "compact", includePolicies: false } },
+    ]);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__pdfSaved))
+    .toEqual(["batch-pdf"]);
 });
 
 test("right-click adds child with the selected server and personal favorites can be removed", async ({
@@ -1440,9 +1571,7 @@ test("policy history is paginated in a separate window and has administrator ver
       },
     });
   });
-  await page
-    .getByRole("button", { name: "Политики РК", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Политики РК", exact: true }).click();
   await page.getByRole("button", { name: "История", exact: true }).click();
   const dialog = page.getByRole("dialog", {
     name: "История изменений: Daily",

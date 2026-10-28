@@ -4,6 +4,7 @@ package reports
 import (
 	"bytes"
 	_ "embed"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -84,20 +85,39 @@ func valueText(s string) string {
 	return s
 }
 
+var ErrCompactOverflow = errors.New("Краткий паспорт не помещается на одной странице")
+
 func RenderPassport(in Passport) ([]byte, error) {
+	return RenderPassports([]Passport{in}, "detailed")
+}
+
+// RenderPassports shares embedded fonts and page numbering across the selection.
+// A failed compact layout returns no partial document.
+func RenderPassports(items []Passport, layout string) ([]byte, error) {
+	if len(items) == 0 {
+		return nil, errors.New("Не выбраны объекты для PDF")
+	}
+	if layout != "detailed" && layout != "compact" {
+		return nil, errors.New("Неизвестный вид PDF")
+	}
+	in := items[0]
 	p := fpdf.New("P", "mm", "A4", "")
 	p.SetMargins(margin, margin, margin)
 	p.SetCellMargin(0)
 	p.SetAutoPageBreak(false, 20)
 	p.AddUTF8FontFromBytes("Noto", "", regular)
 	p.AddUTF8FontFromBytes("Noto", "B", bold)
-	p.SetTitle("Паспорт объекта — "+text(in.Name), true)
+	title := "Паспорт объекта — " + text(in.Name)
+	if len(items) > 1 {
+		title = fmt.Sprintf("Паспорта выбранных БД — %d", len(items))
+	}
+	p.SetTitle(title, true)
 	p.SetAuthor(text(in.Author), true)
 	p.SetCreator("CatalogDB "+in.AppVersion, true)
 	p.SetCreationDate(in.GeneratedAt.UTC())
 	p.SetModificationDate(in.GeneratedAt.UTC())
 	p.AliasNbPages("{pages}")
-	r := renderer{p: p, report: in}
+	r := renderer{p: p}
 	p.SetFooterFunc(func() {
 		p.SetDrawColor(219, 229, 235)
 		p.Line(margin, 280, 192, 280)
@@ -105,23 +125,34 @@ func RenderPassport(in Passport) ([]byte, error) {
 		p.SetXY(150, 284)
 		p.CellFormat(42, 4, fmt.Sprintf("%d / {pages}", p.PageNo()), "", 0, "R", false, 0, "")
 	})
-	p.AddPage()
-	r.cover()
-	r.summary()
-	for i, section := range in.Sections {
-		r.section(fmt.Sprintf("%02d", i+1), section)
+	for _, item := range items {
+		r.report = item
+		if layout == "compact" {
+			if err := r.compact(); err != nil {
+				return nil, err
+			}
+		} else {
+			p.AddPage()
+			r.cover()
+			r.summary()
+			for i, section := range item.Sections {
+				r.section(fmt.Sprintf("%02d", i+1), section)
+			}
+			r.section("ID", metadata(item))
+		}
 	}
-	r.section("ID", Section{Title: "Реквизиты документа", Fields: []Field{
-		{"Идентификатор объекта", in.ID},
-		{"Версия записи", fmt.Sprint(in.Version)},
-		{"Сформировал", in.Author},
-		{"Дата формирования", in.GeneratedAt.Format("02.01.2006 · 15:04:05 UTC-07:00")},
-	}})
 	var out bytes.Buffer
 	if err := p.Output(&out); err != nil {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+func metadata(in Passport) Section {
+	return Section{Title: "Реквизиты документа", Fields: []Field{
+		{"Идентификатор объекта", in.ID}, {"Версия записи", fmt.Sprint(in.Version)},
+		{"Сформировал", in.Author}, {"Дата формирования", in.GeneratedAt.Format("02.01.2006 · 15:04:05 UTC-07:00")},
+	}}
 }
 
 func (r *renderer) line(x, y float64, s string, size float64, style string, c color) {
@@ -200,7 +231,8 @@ func (r *renderer) summary() {
 		return
 	}
 	items := r.report.Summary
-	w := (width - 8) / 3
+	columns := min(3, len(items))
+	w := (width - float64(columns-1)*4) / float64(columns)
 	for start := 0; start < len(items); start += 3 {
 		end := min(start+3, len(items))
 		height := 24.0

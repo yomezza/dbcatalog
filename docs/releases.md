@@ -1,11 +1,12 @@
 # Выпуски CatalogDB
 
-Версии 0.1.0–0.14.0: https://github.com/yomezza/dbcatalog/releases.
+Версии 0.1.0–0.15.0: https://github.com/yomezza/dbcatalog/releases.
 
 Исторические выпуски помечены как предварительные; актуальная версия публикуется обычным релизом с меткой Latest. Архивы взяты из соответствующих исторических коммитов без пересборки; файлы SHA-256 опубликованы рядом с ними. Linux появился в 0.10.0, Android — в 0.13.0.
 
 | Версия | Изменения | Платформы |
 |---|---|---|
+| [0.15.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.15.0) | Выбранные БД в одном PDF, краткий паспорт на A4 и флажок политик РК | Windows x64, Linux x64, Android ARMv7/ARM64/x86_64 |
 | [0.14.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.14.0) | PDF-паспорта серверов, экземпляров и БД с фирменным оформлением | Windows x64, Linux x64, Android ARMv7/ARM64/x86_64 |
 | [0.13.1](https://github.com/yomezza/dbcatalog/releases/tag/v0.13.1) | APK с профилем v1/v2 и стандартными именами сертификатов; проверка совместимости установки | Windows x64, Linux x64, Android ARMv7/ARM64/x86_64 |
 | [0.13.0](https://github.com/yomezza/dbcatalog/releases/tag/v0.13.0) | Android-планшеты, общий Go backend, Keystore и системные документы | Windows x64, Linux x64, Android ARMv7/ARM64/x86_64 |

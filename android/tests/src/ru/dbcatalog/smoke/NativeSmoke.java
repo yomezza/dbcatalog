@@ -52,6 +52,13 @@ public final class NativeSmoke extends Instrumentation {
                 JSONObject server = ((JSONObject) call("GetCatalog")).getJSONArray("servers").getJSONObject(0);
                 JSONObject pdf = (JSONObject) call("ExportObjectPDF", "server", server.getString("id"));
                 check(pdf.getString("name").endsWith(".pdf") && pdf.getLong("size") > 1000, "Native PDF passport failed");
+                JSONObject instance = (JSONObject) call("SaveObject", new JSONObject().put("kind", "instance")
+                        .put("parentId", server.getString("id")).put("name", "PDF-PG").put("dbms", "PostgreSQL"));
+                JSONObject database = (JSONObject) call("SaveObject", new JSONObject().put("kind", "database")
+                        .put("parentId", instance.getString("id")).put("name", "PDF-DB"));
+                JSONObject selected = (JSONObject) call("ExportSelectionPDF", new JSONArray().put(database.getString("id")),
+                        new JSONObject().put("layout", "compact").put("includePolicies", false));
+                check(selected.getString("name").endsWith(".pdf") && selected.getLong("size") > 1000, "Native selected compact PDF failed");
             } else {
                 JSONObject connection = new JSONObject().put("host", "10.0.2.2").put("port", 55432)
                         .put("database", "catalogdb_test").put("username", "catalogdb").put("schema", schema)

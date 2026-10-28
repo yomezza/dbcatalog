@@ -1,4 +1,5 @@
 import { CatalogView } from "./features/catalog/CatalogView";
+import { PrintPDFDialog, type PrintTarget } from "./PrintPDFDialog";
 import { useCatalogBrowser } from "./features/catalog/useCatalogBrowser";
 import { QualityPanel } from "./features/quality/QualityPanel";
 import { DeletedPanel } from "./features/deleted/DeletedPanel";
@@ -71,15 +72,17 @@ export function App() {
     user: null,
   });
   const [passwordUser, setPasswordUser] = useState<User | null>(null);
+  const [printTarget, setPrintTarget] = useState<PrintTarget | null>(null);
+  useEffect(
+    () => setPrintTarget(null),
+    [status.connected, status.schema, status.user?.id],
+  );
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
   function printObject(object: CatalogObject) {
-    void run(async () => {
-      const file = await api().ExportObjectPDF(object.kind, object.id);
-      setMessage("PDF-паспорт сохранён в «Загрузки»");
-      await api().SaveDownloadAs(file.id);
-    });
+    setError("");
+    setPrintTarget({ object });
   }
   const [sessionHours, setSessionHours] = useState(0);
   const [liveDirty, setLiveDirty] = useState(false);
@@ -679,6 +682,10 @@ export function App() {
               onRefresh={refreshCatalog}
               onAddServer={() => openEditor(newObject("server"))}
               onMessage={setMessage}
+              onPrintSelection={(ids) => {
+                setError("");
+                setPrintTarget({ ids });
+              }}
               run={run}
             >
               <ObjectCard
@@ -900,6 +907,16 @@ export function App() {
               setMessage("Объект сохранён");
             })
           }
+        />
+      )}
+      {printTarget && status.user && (
+        <PrintPDFDialog
+          target={printTarget}
+          busy={busy}
+          error={error}
+          run={run}
+          onClose={() => setPrintTarget(null)}
+          onCreated={setMessage}
         />
       )}
       {contextMenu && (

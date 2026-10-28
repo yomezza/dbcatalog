@@ -47,6 +47,12 @@ func (a *App) GetCatalog() (application.Catalog, error)   { return a.service.Get
 func (a *App) ExportObjectPDF(kind, id string) (downloads.Entry, error) {
 	return a.service.ExportObjectPDF(kind, id)
 }
+func (a *App) ExportObjectPDFWithOptions(kind, id string, options application.PDFOptions) (downloads.Entry, error) {
+	return a.service.ExportObjectPDFWithOptions(kind, id, options)
+}
+func (a *App) ExportSelectionPDF(ids []string, options application.PDFOptions) (downloads.Entry, error) {
+	return a.service.ExportSelectionPDF(ids, options)
+}
 func (a *App) SaveObject(o application.Object) (application.Object, error) {
 	return a.service.SaveObject(o)
 }
